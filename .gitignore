@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.spec
+
+# Сохранения игры (создаётся рядом с exe)
+petka_save.sqlite
+
+# ОС и редакторы
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
