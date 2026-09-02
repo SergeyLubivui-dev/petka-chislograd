@@ -48,10 +48,25 @@ export class Viewport {
     this.ctx.setTransform(s, 0, 0, s, 0, 0);
   }
 
-  /** Матрица для мира: учитывает камеру и коэффициент параллакса слоя. */
-  applyWorld(cameraX, parallax = 1) {
+  /**
+   * Матрица для мира: камера, коэффициент параллакса слоя и приближение.
+   *
+   * Приближение считается вокруг точки (fx, fy) в единицах интерфейса.
+   * По умолчанию это середина экрана по горизонтали и низ по вертикали -
+   * тогда при наезде камеры линия пола остаётся на месте, а сцена растёт
+   * вверх и в стороны, как в театре.
+   *
+   *   x' = zoom * (x - cameraX * parallax) + (1 - zoom) * fx
+   *   y' = zoom * y + (1 - zoom) * fy
+   */
+  applyWorld(cameraX, parallax = 1, zoom = 1, fx = this.viewW / 2, fy = this.viewH) {
     const s = this.scale * this.dpr;
-    this.ctx.setTransform(s, 0, 0, s, -cameraX * parallax * s, 0);
+    const z = zoom;
+    this.ctx.setTransform(
+      s * z, 0, 0, s * z,
+      s * ((1 - z) * fx - z * cameraX * parallax),
+      s * ((1 - z) * fy),
+    );
   }
 
   /** Экранные координаты указателя -> виртуальные координаты интерфейса. */

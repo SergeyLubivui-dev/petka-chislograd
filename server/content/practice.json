@@ -1,0 +1,335 @@
+{
+  "id": "practice",
+  "title": "Задачи",
+  "tabs": [
+    {
+      "id": "reading",
+      "title": "Чтение",
+      "seconds": 120,
+      "hint": {
+        "low": "Прочитай и выбери",
+        "mid": "Прочитай и выбери ответ",
+        "high": "Прочитай и выбери подходящий ответ"
+      },
+      "tasks": [
+        {
+          "word": "кот",
+          "options": [
+            "cat_big",
+            "owl_read_big",
+            "baker_talk_big"
+          ],
+          "answer": 0
+        },
+        {
+          "word": "сова",
+          "options": [
+            "bench",
+            "owl_read_big",
+            "crate"
+          ],
+          "answer": 1
+        },
+        {
+          "word": "дом",
+          "options": [
+            "tree_a",
+            "lamp",
+            "house_a"
+          ],
+          "answer": 2
+        },
+        {
+          "word": "дерево",
+          "options": [
+            "tree_a",
+            "fence_b",
+            "pots"
+          ],
+          "answer": 0
+        },
+        {
+          "word": "фонарь",
+          "options": [
+            "crate",
+            "lamp",
+            "bench"
+          ],
+          "answer": 1
+        },
+        {
+          "frame": "bench",
+          "options": [
+            "скамейка",
+            "ящик",
+            "забор"
+          ],
+          "answer": 0
+        },
+        {
+          "frame": "klyaksa_big",
+          "options": [
+            "сова",
+            "клякса",
+            "пекарь"
+          ],
+          "answer": 1
+        },
+        {
+          "frame": "fence_b",
+          "options": [
+            "дерево",
+            "дом",
+            "забор"
+          ],
+          "answer": 2
+        },
+        {
+          "frame": "pots",
+          "options": [
+            "горшки",
+            "камни",
+            "булки"
+          ],
+          "answer": 0
+        },
+        {
+          "word": "пекарь",
+          "options": [
+            "baker_talk_big",
+            "petka_big",
+            "cat_big"
+          ],
+          "answer": 0
+        },
+        {
+          "word": "ящик",
+          "options": [
+            "bush_a",
+            "crate",
+            "stones"
+          ],
+          "answer": 1
+        },
+        {
+          "frame": "petka_big",
+          "options": [
+            "Петька",
+            "Тишка",
+            "Клякса"
+          ],
+          "answer": 0
+        },
+        {
+          "missing": "С_ВА",
+          "frame": "owl_read_big",
+          "options": [
+            "О",
+            "А",
+            "У"
+          ],
+          "answer": 0
+        },
+        {
+          "missing": "КО_",
+          "frame": "cat_big",
+          "options": [
+            "Т",
+            "Д",
+            "К"
+          ],
+          "answer": 0
+        },
+        {
+          "missing": "ДО_",
+          "frame": "house_a",
+          "options": [
+            "М",
+            "Н",
+            "Л"
+          ],
+          "answer": 0
+        },
+        {
+          "missing": "ФО_АРЬ",
+          "frame": "lamp",
+          "options": [
+            "Н",
+            "М",
+            "Р"
+          ],
+          "answer": 0
+        },
+        {
+          "missing": "ДЕ_ЕВО",
+          "frame": "tree_a",
+          "options": [
+            "Р",
+            "Л",
+            "В"
+          ],
+          "answer": 0
+        },
+        {
+          "missing": "ЯЩ_К",
+          "frame": "crate",
+          "options": [
+            "И",
+            "Ы",
+            "Е"
+          ],
+          "answer": 0
+        }
+      ]
+    },
+    {
+      "id": "counting",
+      "title": "Счёт",
+      "seconds": 120,
+      "hint": {
+        "low": "Посчитай и выбери",
+        "mid": "Посчитай и выбери ответ",
+        "high": "Посчитай внимательно и выбери ответ"
+      },
+      "tasks": [
+        {
+          "count": 3,
+          "frame": "crate",
+          "options": [
+            "2",
+            "3",
+            "4"
+          ],
+          "answer": 1
+        },
+        {
+          "count": 5,
+          "frame": "bush_b",
+          "options": [
+            "4",
+            "5",
+            "6"
+          ],
+          "answer": 1
+        },
+        {
+          "count": 2,
+          "frame": "tree_b",
+          "options": [
+            "1",
+            "2",
+            "3"
+          ],
+          "answer": 1
+        },
+        {
+          "count": 4,
+          "frame": "lamp",
+          "options": [
+            "3",
+            "4",
+            "5"
+          ],
+          "answer": 1
+        },
+        {
+          "a": 1,
+          "b": 1,
+          "options": [
+            "1",
+            "2",
+            "3"
+          ],
+          "answer": 1
+        },
+        {
+          "a": 2,
+          "b": 2,
+          "options": [
+            "3",
+            "4",
+            "5"
+          ],
+          "answer": 1
+        },
+        {
+          "a": 3,
+          "b": 2,
+          "options": [
+            "4",
+            "5",
+            "6"
+          ],
+          "answer": 1
+        },
+        {
+          "a": 4,
+          "b": 3,
+          "options": [
+            "6",
+            "7",
+            "8"
+          ],
+          "answer": 1
+        },
+        {
+          "a": 3,
+          "b": 1,
+          "op": "-",
+          "options": [
+            "1",
+            "2",
+            "3"
+          ],
+          "answer": 1
+        },
+        {
+          "a": 5,
+          "b": 2,
+          "op": "-",
+          "options": [
+            "2",
+            "3",
+            "4"
+          ],
+          "answer": 1
+        },
+        {
+          "a": 4,
+          "b": 4,
+          "options": [
+            "7",
+            "8",
+            "9"
+          ],
+          "answer": 1
+        },
+        {
+          "a": 5,
+          "b": 1,
+          "op": "-",
+          "options": [
+            "3",
+            "4",
+            "5"
+          ],
+          "answer": 1
+        }
+      ]
+    }
+  ],
+  "labels": {
+    "left": "Осталось",
+    "task": "Задача",
+    "of": "из",
+    "correct": "Верно!",
+    "wrong": "Не то. Попробуй ещё",
+    "timeout": "Время вышло",
+    "done": "Все задачи решены!",
+    "result": "Решено",
+    "mistakes": "Ошибок",
+    "best": "Лучший раз",
+    "again": "Ещё раз",
+    "home": "Домой"
+  }
+}

@@ -105,6 +105,39 @@ export function wrapText(ctx, text, maxWidth) {
   return lines;
 }
 
+// ---------------------------------------------------------------- трафареты
+
+const ghostCache = new Map();
+
+/**
+ * Кадр атласа, приглушённый до цвета бумаги - «трафарет», место для предмета.
+ *
+ * Заливать силуэт по альфе нельзя: цифры нарисованы с широкой бумажной
+ * подложкой, и силуэт получается бесформенным пятном. Поэтому цифра остаётся
+ * собой, но выцветает - форму видно, а «ещё не нашёл» читается.
+ *
+ * Возвращает готовый канвас размером с кадр; результат кешируется.
+ */
+export function ghostFrame(atlas, frame, tint = 'rgba(243,236,216,.7)') {
+  const key = `${frame}|${tint}`;
+  const cached = ghostCache.get(key);
+  if (cached) return cached;
+
+  const f = atlas.frame(frame);
+  const c = document.createElement('canvas');
+  c.width = f.w;
+  c.height = f.h;
+  const g = c.getContext('2d');
+  g.drawImage(atlas.image, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+  g.globalCompositeOperation = 'source-atop';   // краска ложится только на рисунок
+  g.fillStyle = tint;
+  g.fillRect(0, 0, f.w, f.h);
+
+  ghostCache.set(key, c);
+  if (ghostCache.size > 48) ghostCache.delete(ghostCache.keys().next().value);
+  return c;
+}
+
 /** Рисует изображение «по обложке» - заполняет всю область без искажений. */
 export function drawCover(ctx, img, w, h) {
   const s = Math.max(w / img.width, h / img.height);

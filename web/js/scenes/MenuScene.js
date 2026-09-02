@@ -10,10 +10,12 @@ export class MenuScene {
   constructor(game) {
     this.game = game;
     this.buttons = [];
+    this.tools = [];
     this.hover = -1;
+    this.toolHover = -1;
   }
 
-  enter() { this.hover = -1; this.layout(); }
+  enter() { this.hover = -1; this.toolHover = -1; this.layout(); }
 
   layout() {
     const { viewW, viewH } = this.game.viewport;
@@ -23,6 +25,7 @@ export class MenuScene {
     const items = [
       { id: 'play', label: 'Играть', color: PALETTE.green },
       { id: 'continue', label: 'Продолжить', color: PALETTE.yellow },
+      { id: 'practice', label: 'Задачи', color: PALETTE.blue },
       { id: 'exit', label: 'Выход', color: PALETTE.paper },
     ];
     const totalH = items.length * h + (items.length - 1) * gap;
@@ -35,6 +38,21 @@ export class MenuScene {
     });
     this.titleY = this.buttons[0].y - 132;
     this.panelW = Math.min(viewW * 0.62, 880);
+
+    // чтение по слогам переключается и здесь: вступление можно пропустить,
+    // а настройка нужна на весь остальной текст игры
+    const { syllables, level } = this.game.settings;
+    const levelName = { low: 'по слогам', mid: 'немного', high: 'хорошо' }[level] ?? 'не выбрано';
+    this.tools = [
+      {
+        id: 'syllables', label: syllables ? 'По сло-гам: да' : 'По слогам: нет',
+        x: 40, y: viewH - 108, w: 320, h: 72, color: syllables ? PALETTE.yellow : PALETTE.paper,
+      },
+      {
+        id: 'reader', label: `Читаю: ${levelName}`,
+        x: 380, y: viewH - 108, w: 360, h: 72, color: PALETTE.blue,
+      },
+    ];
   }
 
   update() {
@@ -42,12 +60,20 @@ export class MenuScene {
     const { input, scenes } = this.game;
     const p = input.pointer;
     this.hover = this.buttons.findIndex((b) => hit(b, p));
-    this.game.canvas.classList.toggle('pointer', this.hover >= 0);
+    this.toolHover = this.tools.findIndex((b) => hit(b, p));
+    this.game.canvas.classList.toggle('pointer', this.hover >= 0 || this.toolHover >= 0);
 
+    if (input.pointer.clicked && this.toolHover >= 0) {
+      const id = this.tools[this.toolHover].id;
+      if (id === 'syllables') this.game.settings.toggleSyllables();
+      if (id === 'reader') scenes.go('reader');
+      return;
+    }
     if (input.pointer.clicked && this.hover >= 0) {
       const id = this.buttons[this.hover].id;
       if (id === 'play') scenes.go('story', { chapter: 'chapter_01' });
       if (id === 'continue') scenes.go('game', { chapter: 'chapter_01' });
+      if (id === 'practice') scenes.go('practice');
       if (id === 'exit') window.close();
     }
     if (input.justPressed('Enter')) scenes.go('story', { chapter: 'chapter_01' });
@@ -94,6 +120,7 @@ export class MenuScene {
     ctx.restore();
 
     this.buttons.forEach((b, i) => drawButton(ctx, b, { hover: i === this.hover, seed: 11 + i * 5 }));
+    this.tools.forEach((b, i) => drawButton(ctx, b, { hover: i === this.toolHover, seed: 91 + i * 5 }));
 
     ctx.save();
     ctx.fillStyle = 'rgba(90,63,46,.75)';
