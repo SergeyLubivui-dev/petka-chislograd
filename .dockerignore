@@ -1,0 +1,14 @@
+.git
+.venv
+__pycache__
+**/__pycache__
+*.py[cod]
+build
+dist
+*.spec
+petka_save.sqlite
+.idea
+.vscode
+*.md
+start.bat
+run_desktop.py

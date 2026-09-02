@@ -1,0 +1,24 @@
+services:
+  petka:
+    build: .
+    image: petka-chislograd:dev
+    container_name: petka-chislograd
+    ports:
+      - "6244:6244"
+    volumes:
+      # Живая правка кода и ассетов + сохранение глав из встроенного редактора (Ctrl+S)
+      - ./server:/app/server
+      - ./web:/app/web
+      # Прогресс игры: petka_save.sqlite на отдельном томе (PETKA_DATA_DIR)
+      - petka-save:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PETKA_DATA_DIR=/app/data
+    command: >
+      python -m uvicorn server.app:app
+      --host 0.0.0.0 --port 6244 --reload
+      --reload-dir /app/server
+    restart: unless-stopped
+
+volumes:
+  petka-save:
