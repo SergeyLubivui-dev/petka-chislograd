@@ -3,13 +3,23 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import sys
 from pathlib import Path
 
 
 def data_dir() -> Path:
-    """Каталог для сохранений: рядом с exe, а в разработке - в корне проекта."""
+    """Каталог для сохранений: рядом с exe, а в разработке - в корне проекта.
+
+    PETKA_DATA_DIR переопределяет путь - нужно для запуска в контейнере,
+    где прогресс лежит на отдельном томе.
+    """
+    override = os.environ.get("PETKA_DATA_DIR")
+    if override:
+        path = Path(override)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent

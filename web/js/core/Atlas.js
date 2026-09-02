@@ -25,16 +25,18 @@ export class Atlas {
    * @param {string} name имя кадра
    * @param {number} x позиция якоря по горизонтали
    * @param {number} y позиция якоря по вертикали
-   * @param {object} o { scale, flipX, anchorX, anchorY, alpha }
-   *        anchorX/anchorY: 0..1, по умолчанию нижний центр (0.5, 1)
+   * @param {object} o { scale, scaleX, scaleY, flipX, anchorX, anchorY, alpha }
+   *        anchorX/anchorY: 0..1, по умолчанию нижний центр (0.5, 1).
+   *        scaleX/scaleY задают масштаб по осям отдельно - так делается
+   *        пружинка (squash & stretch), когда персонаж «дышит».
    */
   draw(ctx, name, x, y, o = {}) {
     const f = this.frame(name);
     const scale = o.scale ?? 1;
     const ax = o.anchorX ?? 0.5;
     const ay = o.anchorY ?? 1;
-    const w = f.w * scale;
-    const h = f.h * scale;
+    const w = f.w * (o.scaleX ?? scale);
+    const h = f.h * (o.scaleY ?? scale);
     const alpha = o.alpha ?? 1;
 
     ctx.save();

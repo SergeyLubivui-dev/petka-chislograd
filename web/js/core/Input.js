@@ -40,6 +40,11 @@ export class Input {
     return a;
   }
 
-  get jump() { return this.justPressed('Space', 'ArrowUp', 'KeyW'); }
+  /** Прыжок - только вверх: пробел отдан взаимодействию. */
+  get jump() { return this.justPressed('ArrowUp', 'KeyW'); }
+
+  /** Поговорить, подобрать, решить - всё на пробел. */
+  get interact() { return this.justPressed('Space', 'Enter', 'NumpadEnter', 'KeyE'); }
+
   get confirm() { return this.justPressed('Space', 'Enter', 'NumpadEnter') || this.pointer.clicked; }
 }

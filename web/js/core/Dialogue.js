@@ -1,5 +1,6 @@
 import { PALETTE, paperPath, wrapText, drawButton, hit, font } from './ui.js';
 import { Tween } from './motion.js';
+import { readable } from './text.js';
 
 /**
  * Диалоговая система с выбором темы и головоломками.
@@ -24,6 +25,9 @@ export class Dialogue {
     this.hT = new Tween(0);   // высота панели тянется, а не прыгает
     this._first = true;
   }
+
+  /** Текст с учётом режима чтения по слогам (настройка из главного меню). */
+  tr(s) { return readable(s, this.game.settings); }
 
   open(npc) {
     this.active = true;
@@ -72,7 +76,7 @@ export class Dialogue {
       this.npc.dialogue.topics.forEach((t, i) => {
         const done = this.solved.has(`${this.npc.id}:${i}`);
         this.buttons.push({
-          id: `topic:${i}`, label: `${i + 1}. ${t.title}${done ? '   готово' : ''}`,
+          id: `topic:${i}`, label: `${i + 1}. ${this.tr(t.title)}${done ? '   готово' : ''}`,
           x: x + 60, y: by, w: bw, h: bh, color: done ? PALETTE.paperDark : PALETTE.paper,
         });
         by += bh + gap;
@@ -186,15 +190,18 @@ export class Dialogue {
     ctx.fillStyle = PALETTE.ink;
     ctx.textAlign = 'left';
     ctx.font = font(34);
-    ctx.fillText(this.npc.name, x + 176, y + 72);
+    ctx.fillText(this.tr(this.npc.name), x + 176, y + 72);
 
     ctx.font = font(26, 400);
     const maxW = w - 236;
     let body = '';
     if (this.mode === 'topics') body = this.npc.dialogue.greeting;
-    else if (this.mode === 'text') body = this.topic.text + (this.topic.puzzle ? '\n(пробел - к задаче)' : '');
+    // текст темы бывает развилкой по уровню чтения, поэтому сначала разбираем
+    // его, и только потом дописываем подсказку про пробел
+    else if (this.mode === 'text') body = this.tr(this.topic.text) + (this.topic.puzzle ? '\n(пробел - к задаче)' : '');
     else if (this.mode === 'puzzle') body = this.topic.puzzle.question;
     else if (this.mode === 'result') body = this.result.text;
+    body = this.tr(body);
 
     let ly = y + 112;
     for (const para of body.split('\n')) {

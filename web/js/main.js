@@ -12,6 +12,8 @@ import { SceneManager } from './core/SceneManager.js';
 import { MenuScene } from './scenes/MenuScene.js';
 import { StoryScene } from './scenes/StoryScene.js';
 import { GameScene } from './scenes/GameScene.js';
+import { PracticeScene } from './scenes/PracticeScene.js';
+import { ReaderScene } from './scenes/ReaderScene.js';
 
 const api = {
   async content(name) {
@@ -33,6 +35,50 @@ const api = {
   },
 };
 
+/**
+ * Настройки чтения: уровень и слоги.
+ *
+ * Уровень (`low` / `mid` / `high`) спрашивается на первом экране и решает,
+ * какой длины тексты показывать - развилки лежат прямо в JSON. Слоги идут
+ * следом: тому, кто читает по складам, они нужны, уверенному - мешают.
+ * Оба выбора запоминаются в браузере.
+ */
+const settings = {
+  level: readStr('petka.level', null),
+  syllables: readFlag('petka.syllables', true),
+
+  get chosen() { return this.level !== null; },
+
+  setLevel(level, syllables) {
+    this.level = level;
+    write('petka.level', level);
+    if (syllables !== undefined) {
+      this.syllables = syllables;
+      write('petka.syllables', syllables ? '1' : '0');
+    }
+  },
+
+  toggleSyllables() {
+    this.syllables = !this.syllables;
+    write('petka.syllables', this.syllables ? '1' : '0');
+  },
+};
+
+function write(key, value) {
+  try { localStorage.setItem(key, value); } catch { /* приватный режим */ }
+}
+
+function readStr(key, fallback) {
+  try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; }
+}
+
+function readFlag(key, fallback) {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === '1';
+  } catch { return fallback; }
+}
+
 async function boot() {
   const canvas = document.getElementById('game');
   const bootEl = document.getElementById('boot');
@@ -52,7 +98,7 @@ async function boot() {
   ], (p) => setBootText(`Загрузка ${Math.round(p * 100)} %`));
 
   const game = {
-    canvas, viewport, input, api,
+    canvas, viewport, input, api, settings,
     atlas: new Atlas(res.atlasImg, res.atlasData),
     assets: { menuBg: res.menuBg, farBg: res.farBg },
     chapter: null,
@@ -64,7 +110,10 @@ async function boot() {
   scenes.register('menu', new MenuScene(game));
   scenes.register('story', new StoryScene(game));
   scenes.register('game', new GameScene(game));
-  scenes.set('menu');
+  scenes.register('practice', new PracticeScene(game));
+  scenes.register('reader', new ReaderScene(game));
+  // при первом запуске сначала спрашиваем, как ребёнок читает
+  scenes.set(settings.chosen ? 'menu' : 'reader');
 
   bootEl.classList.add('hidden');
 
