@@ -1,0 +1,13 @@
+{
+  "name": "Петька и Числоград",
+  "short_name": "Числоград",
+  "lang": "ru",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#4a3427",
+  "theme_color": "#4a3427",
+  "icons": [
+    { "src": "favicon.ico", "sizes": "64x64", "type": "image/x-icon" }
+  ]
+}

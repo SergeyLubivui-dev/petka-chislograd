@@ -2,16 +2,39 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Числоград">
+<meta name="theme-color" content="#4a3427">
+<meta name="format-detection" content="telephone=no">
 <title>Петька и Числоград</title>
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="css/transitions.css">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div id="stage">
     <canvas id="game"></canvas>
+    <!-- невидимый элемент: через него JS читает env(safe-area-inset-*) - вырезы экрана -->
+    <div id="safe-probe" aria-hidden="true"></div>
     <div id="boot">
       <span id="boot-text" class="t-shimmer" data-text="Загрузка">Загрузка</span>
+    </div>
+    <!-- портретная ориентация: игра альбомная, просим повернуть устройство -->
+    <div id="rotate" aria-hidden="true">
+      <div class="rotate-card">
+        <div class="rotate-icon">
+          <svg viewBox="0 0 120 120" width="96" height="96">
+            <rect x="34" y="14" width="52" height="92" rx="10" fill="none" stroke="#5a3f2e" stroke-width="6"/>
+            <circle cx="60" cy="96" r="4" fill="#5a3f2e"/>
+            <path d="M14 60 a46 46 0 0 1 20 -36" fill="none" stroke="#f2c14e" stroke-width="7" stroke-linecap="round"/>
+            <path d="M28 18 l8 8 l-12 4z" fill="#f2c14e"/>
+          </svg>
+        </div>
+        <div class="rotate-text">По-вер-ни план-шет<br>на бок</div>
+      </div>
     </div>
   </div>
   <script type="module" src="js/main.js"></script>
