@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<base href="/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Редактор уровней - Петька и Числоград</title>
+<link rel="icon" href="favicon.ico">
+<link rel="stylesheet" href="css/editor.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">Редактор уровней<i>Петька и Числоград</i></div>
+  <div id="chapters" class="tabs"></div>
+  <div class="grow"></div>
+  <div class="tools">
+    <button id="btn-undo" class="btn icon" type="button" title="Отменить (Ctrl+Z)">↶</button>
+    <button id="btn-redo" class="btn icon" type="button" title="Повторить (Ctrl+Shift+Z)">↷</button>
+    <button id="btn-fit" class="btn" type="button" title="Показать сцену целиком">Вписать</button>
+    <label class="chk"><input id="opt-snap" type="checkbox" checked><span>сетка 10</span></label>
+    <label class="chk"><input id="opt-grid" type="checkbox" checked><span>линии (G)</span></label>
+    <button id="btn-check" class="btn" type="button" title="Проверить главу, как это делает tools/check_chapter.py">Проверить</button>
+    <button id="btn-save" class="btn primary" type="button" title="Сохранить главу (Ctrl+S)">Сохранить</button>
+  </div>
+</header>
+
+<main>
+  <aside id="palette" class="panel left"></aside>
+
+  <section class="center">
+    <canvas id="ruler" class="ruler"></canvas>
+    <div class="view side">
+      <canvas id="side"></canvas>
+      <div class="view-tag">вид сбоку — как в игре</div>
+    </div>
+    <input id="scroll" class="scroll" type="range" min="0" max="7200" value="0" step="1"
+           aria-label="Прокрутка вдоль уровня">
+    <div class="view top">
+      <canvas id="top"></canvas>
+      <div class="view-tag">вид сверху — глубина сцены</div>
+    </div>
+  </section>
+
+  <aside id="inspector" class="panel right"></aside>
+</main>
+
+<footer class="statusbar">
+  <span id="st-counts"></span>
+  <span id="st-msg"></span>
+  <span class="keys">колесо - зум · пробел/СКМ - панорама · Del - удалить · Ctrl+D - копия · PgUp/PgDn - порядок · F - отразить</span>
+  <span class="grow"></span>
+  <span id="st-cursor" class="mono"></span>
+  <span id="st-zoom" class="mono"></span>
+</footer>
+
+<div id="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">Проверка главы
+      <button id="modal-close" class="btn icon" type="button" title="Закрыть">✕</button>
+    </div>
+    <div id="modal-body" class="modal-body"></div>
+  </div>
+</div>
+
+<div id="boot">Загрузка редактора...</div>
+
+<script type="module" src="js/editor/main.js"></script>
+</body>
+</html>
