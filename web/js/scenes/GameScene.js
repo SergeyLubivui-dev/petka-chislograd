@@ -1,4 +1,10 @@
-import { PALETTE, drawButton, hit, paperPath, font, wrapText, ghostFrame } from '../core/ui.js';
+import { PALETTE, drawButton, hit, paperPath, font, wrapText, ghostFrame, drawCoinBadge, drawCoin, clickedButton } from '../core/ui.js';
+import { TouchControls } from '../core/TouchControls.js';
+import { DEFAULT_REWARDS } from '../core/Progress.js';
+import { Puppet } from '../core/Puppet.js';
+
+/** Имя скелета по кадру атласа: cat_sit -> cat, klyaksa_round -> klyaksa. */
+const rigName = (frame) => String(frame).split('_')[0];
 import { Dialogue } from '../core/Dialogue.js';
 import { Placement } from '../core/Placement.js';
 import { Finale } from '../core/Finale.js';
@@ -32,12 +38,18 @@ const WALK_FRAMES = ['petka_walk0', 'petka_walk1', 'petka_walk2',
 const JUMP_CROUCH_T = 0.06;     // короткая присядка на отрыве - «замах»
 const JUMP_APEX_VY = 250;       // |vy| ниже этого - верхняя точка (0,19 с)
 const LAND_TIME = 0.16;         // сколько держится поза приземления
-const GROUND_OFFSET = 96;   // от низа экрана до линии пола
+const GROUND_OFFSET = 150;  // от низа экрана до линии пола: выше линейки цифр, чтобы ступни героя было видно
 const MAX_HP = 3;
 const HURT_TIME = 1.6;      // неуязвимость после касания Кляксы
 const TALK_RANGE = 180;
 const IDLE_FRONT_AFTER = 3;   // сек простоя до разворота к игроку
 const NPC_ZOOM = 1.18;        // насколько камера наезжает у собеседника
+// подсказка для планшета: про клавиши там читать нечего
+const TOUCH_HINT = {
+  low: 'Собери цифры. Иди стрелками. Прыгай кнопкой справа.',
+  mid: 'Собери все цифры. Иди стрелками внизу. Прыгай кнопкой справа. «Говорить» и «Решить» - тоже справа.',
+  high: 'Собери все цифры и верни их на место. Иди стрелками внизу, прыгай кнопкой со стрелкой вверх. Кнопки «Говорить» и «Решить» появляются рядом с героями и ящиками. Кляксу обходи.',
+};
 const ZOOM_SPEED = 2.8;       // как быстро наезжает и отъезжает
 
 /**
@@ -58,6 +70,9 @@ export class GameScene {
     this.finale = new Finale(game);
     this.taskWindow = new TaskWindow(game);
     this.editor = new Editor(game);
+    this.touch = new TouchControls(game);
+    this.coinPops = [];          // всплывающие «+5» у героя
+    this.coinBump = 0;           // кошелёк подпрыгивает, когда пришли монеты
   }
 
   async enter(data) {
@@ -66,19 +81,34 @@ export class GameScene {
     this.chapter = await this.game.api.content(id);
     this.game.chapter = this.chapter;
     this.game.scene = this;
+    this.rewards = { ...DEFAULT_REWARDS, ...(this.chapter.rewards ?? {}) };
+    this.game.progress.data.lastChapter = this.chapter.id;
 
-    this.restart();
+    // у каждой главы своя дорожка: game_01, game_02, ...; нет файла - первая
+    const n = String(this.chapter.number ?? 1).padStart(2, '0');
+    this.game.audio.play(`game_${n}`);
+
+    this.restart(!!data.resume);
     this.ready = true;
   }
 
-  restart() {
+  /**
+   * @param {boolean} resume продолжить с сохранённого места: собранные цифры
+   *        и решённые ящики остаются, герой встаёт за последним ящиком
+   */
+  restart(resume = false) {
     const ch = this.chapter;
+    const saved = resume ? this.game.progress.chapter(ch.id) : null;
+    if (!resume) this.game.progress.reset(ch.id);
     this.player = {
-      x: ch.playerStart ?? 260, y: 0, vx: 0, vy: 0,
+      x: saved?.x ?? ch.playerStart ?? 260, y: 0, vx: 0, vy: 0,
       onGround: true, flip: false, scale: 0.63,
       hp: MAX_HP, hurt: 0,
       sx: 1, sy: 1, syv: 0,          // пружина для squash & stretch
+      face: 1,                       // -1..1: куда развёрнут; промежуточное - разворот
     };
+    this.player.prevX = this.player.x;
+    this.player.prevY = this.player.y;
     this.state = 'hello';
     this.helloTimer = 1.2;
     this.walkDist = 0;      // пройденный путь: по нему крутится цикл ходьбы
@@ -86,8 +116,12 @@ export class GameScene {
     this.landT = 0;         // сколько ещё держать позу приземления
     this.idleTime = 0;
     this.cameraX = 0;
+    this.prevCameraX = 0;
+    this.camX = 0;
     this.camLook = 0;
     this.zoom = 1;
+    this.prevZoom = 1;
+    this.viewZoom = 1;
     this.collected = new Set();
     this.collectedOrder = [];        // порядок сбора нужен финалу: по нему считаем
     this.popup = null;
@@ -97,7 +131,16 @@ export class GameScene {
     this.nearNpc = null;
     this.enemies = (ch.enemies || []).map((e) => ({ def: e, x: e.x, dir: 1, t: 0 }));
     // ворота: ящик стоит поперёк дороги, пока не решена его задача
-    this.gates = (ch.gates || []).map((g) => ({ def: g, solved: false, slide: 0 }));
+    this.gates = (ch.gates || []).map((g) => {
+      const solved = !!saved?.gates?.includes(g.id);
+      return { def: g, solved, slide: solved ? 1 : 0 };
+    });
+    if (saved) {
+      for (const it of ch.pickups) {
+        if (saved.collected?.includes(it.id)) { this.collected.add(it.id); this.collectedOrder.push(it); }
+      }
+    }
+    this.coinPops = [];
     this.nearGate = null;
     this.dialogue.close();
     // окно закрывается молча: после перезапуска главы цифра снова «не тронута»,
@@ -112,7 +155,57 @@ export class GameScene {
     this.taskWindow.close();
     // цифры, чьё окно закрыли вручную: снова предложатся, когда герой отойдёт
     this.deferred = new Set();
+    this.buildPuppets();
     this.layoutUI();
+  }
+
+  /**
+   * Марионетки (`core/Puppet.js`): герой, собеседники и Кляксы собраны из
+   * частей рисунка и анимируются процедурно. Если скелетов нет, поля
+   * остаются null - тогда рисуются кадры атласа, как раньше.
+   */
+  buildPuppets() {
+    const rigs = this.game.rigs;
+    const mk = (name) => {
+      if (!rigs) return null;
+      const q = new Puppet(rigs.data, rigs.images, name, { atlas: this.game.atlas });
+      return q.ok ? q : null;
+    };
+    this.puppet = mk('petka');
+    this.npcPuppets = {};
+    for (const n of this.chapter.npc) this.npcPuppets[n.id] = mk(rigName(n.frame));
+    for (const e of this.enemies) e.puppet = mk(rigName(e.def.frame));   // у каждой Кляксы свой экземпляр
+    this.puppet?.snap();
+    for (const q of Object.values(this.npcPuppets)) q?.snap();
+    for (const e of this.enemies) e.puppet?.snap();
+  }
+
+  /**
+   * Позы марионеток. Считаются не в шаге логики, а по времени кадра: поза -
+   * вещь чисто визуальная, детерминизм ей не нужен, зато на мониторе 120 Гц
+   * она обновляется 120 раз в секунду, а не 60. Время марионетка копит сама,
+   * поэтому дыхание и моргание идут плавно, а не ступеньками по 1/60.
+   */
+  updatePuppets(dt) {
+    const p = this.player;
+    // Пока открыто окно, физика героя стоит на месте. Если отдать аниматору
+    // последнее состояние, герой так и останется шагать на месте посреди
+    // разговора, поэтому на время окна он просто стоит.
+    const paused = this.placement.active || this.dialogue.active
+      || this.finale.active || this.taskWindow.active || this.gameOver;
+    this.puppet?.update(dt, paused
+      ? { state: 'idle', vx: 0, vy: 0, onGround: true, speed: 0, flip: p.flip, hurt: 0 }
+      : {
+        state: this.state, vx: p.vx, vy: p.vy, onGround: p.onGround,
+        speed: p.moveSpeed ?? 0, flip: p.flip, hurt: p.hurt,
+      });
+    for (const n of this.chapter.npc) {
+      const talking = this.dialogue.active && this.dialogue.npc === n;
+      this.npcPuppets[n.id]?.update(dt, { state: talking ? 'talk' : 'idle', flip: !!n.flip });
+    }
+    for (const e of this.enemies) {
+      e.puppet?.update(dt, { vx: e.dir * (e.def.speed ?? 140), flip: e.dir < 0, lookX: Math.sign(p.x - e.x) });
+    }
   }
 
   /**
@@ -143,10 +236,18 @@ export class GameScene {
     if (this.editor.update(dt, this.chapter, this.groundY)) return;
 
     this.layoutUI();
+    const windowOpen = this.placement.active || this.dialogue.active || this.finale.active || this.taskWindow.active;
+    // экранные кнопки: пока открыто окно, их нет - палец не должен случайно
+    // прыгать под диалогом
+    this.touch.layout({ act: windowOpen || this.gameOver ? null : this.actLabel() });
+    if (windowOpen) this.game.input.setZones([]);
+
     // пока открыто окно, кнопки «?» и «домой» не ловят клики: ребёнок тянет
     // цифру мышью и легко отпускает её над углом экрана
-    if (!this.placement.active && !this.dialogue.active && !this.finale.active
-        && !this.taskWindow.active) this.handleButtons();
+    if (!windowOpen) this.handleButtons();
+    if (this.coinBump > 0) this.coinBump = Math.max(0, this.coinBump - dt * 1.6);
+    for (const c of this.coinPops) c.t -= dt;
+    this.coinPops = this.coinPops.filter((c) => c.t > 0);
 
     if (this.placement.active) { this.placement.update(dt); return; }
     if (this.taskWindow.active) { this.taskWindow.update(dt); return; }
@@ -154,7 +255,7 @@ export class GameScene {
     if (this.dialogue.active) { this.dialogue.update(dt); return; }
 
     if (this.gameOver) {
-      if (input.justPressed('Space', 'Enter') || input.pointer.clicked) this.restart();
+      if (input.justPressed('Space', 'Enter') || input.pointer.clicked) this.restart(true);
       return;
     }
     if (input.justPressed('Escape')) { this.game.scenes.go('menu'); return; }
@@ -183,6 +284,7 @@ export class GameScene {
     const { input } = this.game;
     const p = this.player;
     const locked = this.helloTimer > 0;
+    p.prevX = p.x; p.prevY = p.y;      // для промежуточного кадра отрисовки
 
     const ax = locked ? 0 : input.axisX;
     p.vx = ax * SPEED;
@@ -192,6 +294,7 @@ export class GameScene {
       p.vy = -JUMP_V;
       p.onGround = false;
       p.syv = 3.2;                     // вытягивание на отрыве
+      this.game.audio.jump();
     }
 
     p.vy += GRAVITY * dt;
@@ -202,24 +305,31 @@ export class GameScene {
       if (!p.onGround) {
         p.syv = -4.5;                  // приседание при приземлении
         this.landT = LAND_TIME;        // и поза «приземлился»
+        this.game.audio.land();
       }
       p.y = 0; p.vy = 0; p.onGround = true;
     }
     this.airT = p.onGround ? 0 : this.airT + dt;
     if (this.landT > 0 && p.onGround) this.landT -= dt;
 
-    // цикл ходьбы крутится от пройденного пути - тогда ноги не скользят
-    // ни при какой скорости
-    if (p.onGround && ax !== 0) this.walkDist += Math.abs(p.vx) * dt;
+    // Цикл ходьбы крутится от ФАКТИЧЕСКИ пройденного пути, а не от скорости:
+    // упёршись в ящик, герой раньше продолжал перебирать ногами на месте.
+    const moved = Math.abs(p.x - p.prevX);
+    if (p.onGround) this.walkDist += moved;
+    const walking = p.onGround && ax !== 0 && moved > 0.02;
+    // скорость реального перемещения, сглаженная: по ней аниматор крутит
+    // цикл шага - и ноги не скользят, и у ящика герой не топчется на месте
+    const inst = walking ? moved / Math.max(dt, 1e-4) : 0;
+    p.moveSpeed = (p.moveSpeed ?? 0) + (inst - (p.moveSpeed ?? 0)) * (1 - Math.exp(-22 * dt));
 
     if (!locked) {
       if (!p.onGround) this.state = 'jump';
-      else if (ax !== 0) this.state = 'walk';
+      else if (walking) this.state = 'walk';
       else this.state = this.idleTime >= IDLE_FRONT_AFTER ? 'idleFront' : 'idle';
     }
 
     // счётчик простоя: три секунды без движения - и герой смотрит вперёд
-    const still = p.onGround && ax === 0 && !locked;
+    const still = p.onGround && !walking && !locked;
     this.idleTime = still ? this.idleTime + dt : 0;
 
     // пружина: sy стремится к 1, sx компенсирует «объём»
@@ -227,9 +337,15 @@ export class GameScene {
     p.syv += (1 - p.sy) * k * dt - p.syv * damp * dt;
     p.sy += p.syv * dt;
     p.sx = 1 + (1 - p.sy) * 0.55;
-    if (this.state === 'walk') p.sy += Math.sin(this.game.time * 14) * 0.012;
 
     if (p.hurt > 0) p.hurt -= dt;
+
+    // Разворот не мгновенный: за одну восьмую секунды фигурка проворачивается
+    // через ребро, как перекладная кукла. Мгновенное зеркалирование читалось
+    // как рывок. Стоя без движения герой поворачивается к игроку - там кадр
+    // анфас, его зеркалить не нужно.
+    const faceWant = this.state === 'idleFront' && p.onGround ? 1 : (p.flip ? -1 : 1);
+    p.face += (faceWant - p.face) * (1 - Math.exp(-16 * dt));
   }
 
   /**
@@ -267,12 +383,10 @@ export class GameScene {
     const win = this.taskWindow;
     win.onSolved = () => {
       gate.solved = true;
-      this.game.api.saveProgress({
-        chapter: this.chapter.id,
-        collected: [...this.collected],
-        hints_used: 0,
-        seconds_played: Math.round(this.game.time),
-      });
+      this.game.audio.gate();
+      // точка продолжения - сразу за ящиком: «Продолжить» ставит героя сюда
+      this.game.progress.markGate(this.chapter.id, gate.def.id, gate.def.x + 120);
+      this.award(this.rewards.gate, gate.def.x);
     };
     win.onClose = null;
 
@@ -316,6 +430,7 @@ export class GameScene {
   updateEnemies(dt) {
     const p = this.player;
     for (const e of this.enemies) {
+      e.prevX = e.x;
       const d = e.def;
       const dist = p.x - e.x;
       const chasing = Math.abs(dist) < (d.chaseRange ?? 500) && !this.finished;
@@ -335,6 +450,7 @@ export class GameScene {
       if (p.hurt <= 0 && !this.finished && Math.abs(e.x - p.x) < 80 && p.y > -150) {
         p.hp -= 1;
         p.hurt = HURT_TIME;
+        this.game.audio.hurt();
         p.vy = -420;
         p.onGround = false;
         p.x += Math.sign(p.x - e.x || 1) * 90;
@@ -352,7 +468,29 @@ export class GameScene {
       if (!n.dialogue) continue;
       if (Math.abs(n.x - p.x) < TALK_RANGE) { this.nearNpc = n; break; }
     }
-    if (this.nearNpc && input.interact) this.dialogue.open(this.nearNpc);
+    if (this.nearNpc && input.interact) {
+      // задача собеседника решена впервые - монетки
+      this.dialogue.onSolved = (key) => {
+        if (this.game.progress.markPuzzle(this.chapter.id, key)) this.award(this.rewards.puzzle, this.nearNpc?.x ?? p.x);
+      };
+      this.dialogue.open(this.nearNpc);
+    }
+  }
+
+  /** Подпись экранной кнопки действия по ситуации; null - действия нет. */
+  actLabel() {
+    if (this.nearNpc) return 'Говорить';
+    if (this.nearGate) return 'Решить';
+    return null;
+  }
+
+  /** Начислить монеты: кошелёк подпрыгивает, у героя всплывает «+5». */
+  award(n, atX) {
+    const got = this.game.progress.earn(n, this.chapter.id);
+    if (!got) return;
+    this.game.audio.coin();
+    this.coinBump = 1;
+    this.coinPops.push({ n: got, x: atX ?? this.player.x, t: 1.3, y0: this.player.y });
   }
 
   updatePickups() {
@@ -398,25 +536,33 @@ export class GameScene {
     this.collectedOrder.push(it);
     this.popup = { frame: it.frame, t: 1.1 };
     this.player.syv = 2.0;
-    this.game.api.saveProgress({
-      chapter: this.chapter.id,
-      collected: [...this.collected],
-      hints_used: 0,
-      seconds_played: Math.round(this.game.time),
-    });
+    this.game.audio.pickup();
+    this.game.progress.markCollected(this.chapter.id, it.id);
+    this.award(this.rewards.pickup, it.x);
   }
 
   /** Финал главы: считаем собранное, складываем, и только потом - итог. */
   openFinale() {
     this.finale.onRestart = () => this.restart();
-    this.finale.onMenu = () => this.game.scenes.go('menu');
+    this.finale.onMenu = () => this.game.scenes.go('chapters');
     this.finale.onClose = null;
+    // глава засчитывается, когда пройдены все задачи финала - один раз
+    this.finale.onDone = () => {
+      if (this.completed) return;
+      this.completed = true;
+      this.game.audio.fanfare();
+      this.game.progress.complete(this.chapter.id, Math.round(this.game.time));
+      this.award(this.rewards.finale, this.player.x);
+    };
+    this.completed = false;
     this.finale.open(this.chapter, this.collectedOrder);
   }
 
   updateCamera(dt) {
     const { viewport } = this.game;
     const p = this.player;
+    this.prevCameraX = this.cameraX;
+    this.prevZoom = this.zoom;
 
     // рядом с собеседником камера наезжает: разговор - крупный план
     const wantZoom = this.nearNpc ? NPC_ZOOM : 1;
@@ -427,23 +573,23 @@ export class GameScene {
     this.camLook += (want - this.camLook) * Math.min(1, dt * 2.2);
     const target = p.x + this.camLook - viewport.viewW * 0.45;
     this.cameraX += (target - this.cameraX) * Math.min(1, dt * 3.4);
-    this.cameraX = Math.max(0, Math.min(Math.max(0, this.levelW - viewport.viewW), this.cameraX));
+    // с экранными кнопками старт уровня подвигается вправо, иначе герой в
+    // начале главы стоит прямо под левыми стрелками
+    const minCam = this.touch.visible ? -200 : 0;
+    this.cameraX = Math.max(minCam, Math.min(Math.max(minCam, this.levelW - viewport.viewW), this.cameraX));
   }
 
   handleButtons() {
-    const { input } = this.game;
-    const over = this.buttons.findIndex((b) => hit(b, input.pointer));
-    if (!this.dialogue.active) this.game.canvas.classList.toggle('pointer', over >= 0);
-    if (input.pointer.clicked && over >= 0) {
-      const id = this.buttons[over].id;
-      if (id === 'menu') this.game.scenes.go('menu');
-      if (id === 'hint') this.showHint = 5;
-      if (id === 'again') this.restart();
-    }
+    const b = clickedButton(this.game, this.buttons);
+    if (!b) return;
+    if (b.id === 'menu') this.game.scenes.go('chapters');
+    if (b.id === 'hint') this.showHint = 5;
+    if (b.id === 'again') this.restart();
   }
 
   layoutUI() {
-    const { viewW } = this.game.viewport;
+    const { viewport } = this.game;
+    const viewW = viewport.viewW - viewport.inset.right;
     // подписи словами, а не значками: «?» и «домик» ребёнок 6+ не читает.
     // «Помощь» вместо «подсказки» - её и по слогам легко прочесть
     const items = [];
@@ -453,18 +599,38 @@ export class GameScene {
       items.push({ id: 'again', label: this.tr('Заново'), w: 200, color: PALETTE.green });
     }
     items.push({ id: 'hint', label: this.tr('Помощь'), w: 210, color: PALETTE.yellow });
-    items.push({ id: 'menu', label: this.tr('Домой'), w: 180, color: PALETTE.paper });
+    items.push({ id: 'menu', label: this.tr('Главы'), w: 180, color: PALETTE.paper });
 
     const gap = 16;
+    const h = viewport.atLeastPx(76, 46);
+    for (const it of items) it.w *= h / 76;     // выше под палец - значит и шире
     let x = viewW - 40 - items.reduce((a, b) => a + b.w, 0) - gap * (items.length - 1);
     this.buttons = items.map((b) => {
-      const btn = { ...b, x, y: 28, h: 76 };
+      const btn = { ...b, x, y: 28 + viewport.inset.top, h };
       x += b.w + gap;
       return btn;
     });
   }
 
   // ---------- отрисовка ----------
+
+  /**
+   * Промежуточный кадр: логика идёт по 1/60 с, монитор рисует чаще, и между
+   * шагами остаётся «хвост» времени (`game.alpha`). По нему смешиваются
+   * прошлое и текущее положение героя, врагов и камеры, поэтому картинка
+   * едет ровно, а не через кадр. На частоте 60 Гц смешивание ничего не
+   * портит: alpha почти всегда близка к единице.
+   */
+  interpolate() {
+    const a = Math.max(0, Math.min(1, this.game.alpha ?? 1));
+    const p = this.player;
+    const mix = (prev, cur) => (prev === undefined ? cur : prev + (cur - prev) * a);
+    this.camX = mix(this.prevCameraX, this.cameraX);
+    this.viewZoom = mix(this.prevZoom, this.zoom);
+    p.viewX = mix(p.prevX, p.x);
+    p.viewY = mix(p.prevY, p.y);
+    for (const e of this.enemies) e.viewX = mix(e.prevX, e.x);
+  }
 
   render() {
     if (!this.ready) return;
@@ -473,43 +639,49 @@ export class GameScene {
     const { viewW, viewH } = viewport;
     const gy = this.groundY;
 
+    this.interpolate();
+    // позы марионеток обновляются здесь: им нужна частота монитора, а не логики
+    if (!this.editor.enabled) this.updatePuppets(Math.min(0.05, this.game.frameDt ?? 1 / 60));
+
     viewport.applyUI();
     ctx.fillStyle = '#eaf3fa';
     ctx.fillRect(0, 0, viewW, viewH);
     this.drawFar(ctx, assets.farBg, viewW, viewH);
 
-    const z = this.editor.enabled ? 1 : this.zoom;   // в редакторе всегда 1:1
+    const z = this.editor.enabled ? 1 : this.viewZoom;   // в редакторе всегда 1:1
     const fy = gy;
 
     for (const o of this.chapter.props.filter((o) => (o.parallax ?? 1) !== 1)) {
-      viewport.applyWorld(this.cameraX, o.parallax ?? 1, z, viewW / 2, fy);
+      viewport.applyWorld(this.camX, o.parallax ?? 1, z, viewW / 2, fy);
       atlas.draw(ctx, o.frame, o.x, gy + (o.yOffset ?? 0), { scale: o.scale ?? 1, flipX: !!o.flip });
     }
 
-    viewport.applyWorld(this.cameraX, 1, z, viewW / 2, fy);
+    viewport.applyWorld(this.camX, 1, z, viewW / 2, fy);
     this.drawGround(ctx, gy);
     for (const o of this.chapter.props.filter((o) => (o.parallax ?? 1) === 1)) {
       atlas.draw(ctx, o.frame, o.x, gy + (o.yOffset ?? 0), { scale: o.scale ?? 1, flipX: !!o.flip });
     }
     for (const n of this.chapter.npc) {
-      atlas.draw(ctx, n.frame, n.x, gy + (n.yOffset ?? 0), {
-        ...this.breath(n.x * 0.01, n.scale ?? 1),
-        flipX: !!n.flip,
-      });
+      const q = this.npcPuppets?.[n.id];
+      // марионетка дышит и моргает сама; без неё - кадр атласа с пружинкой
+      if (q) q.draw(ctx, n.x, gy + (n.yOffset ?? 0), { scale: n.scale ?? 1, flip: !!n.flip });
+      else atlas.draw(ctx, n.frame, n.x, gy + (n.yOffset ?? 0), { ...this.breath(n.x * 0.01, n.scale ?? 1), flipX: !!n.flip });
     }
     this.drawGates(ctx, gy);
     this.drawEnemies(ctx, gy);
     this.drawPickups(ctx, gy);
     this.drawPlayer(ctx, gy);
+    this.drawCoinPops(ctx, gy);
     this.drawForeground(ctx, gy, z, fy);
     if (!this.editor.enabled && !this.dialogue.active && !this.taskWindow.active) {
-      viewport.applyWorld(this.cameraX, 1, z, viewW / 2, fy);
+      viewport.applyWorld(this.camX, 1, z, viewW / 2, fy);
       if (this.nearNpc) this.drawTalkPrompt(ctx, gy);
       else if (this.nearGate) this.drawGatePrompt(ctx, gy);
     }
 
     viewport.applyUI();
     this.drawHUD(ctx, viewW, viewH);
+    if (!this.editor.enabled) this.touch.render();
     this.dialogue.render();
     this.placement.render();
     this.taskWindow.render();
@@ -517,17 +689,45 @@ export class GameScene {
     this.editor.render(this.chapter, gy);
   }
 
+  /** Всплывающие «+5» с монеткой над местом, где их дали. */
+  drawCoinPops(ctx, gy) {
+    for (const c of this.coinPops) {
+      const k = 1 - c.t / 1.3;
+      const y = gy - 260 - k * 90;
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, c.t * 2);
+      drawCoin(ctx, c.x - 26, y, 18, { spin: this.game.time * 8 });
+      ctx.fillStyle = PALETTE.ink;
+      ctx.font = font(34, 800);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`+${c.n}`, c.x, y);
+      ctx.restore();
+    }
+  }
+
   drawPlayer(ctx, gy) {
     const { atlas } = this.game;
     const p = this.player;
-    if (p.hurt > 0 && Math.floor(p.hurt * 12) % 2 === 0) return;   // мигание
+    // Мигание после касания Кляксы: прозрачностью и не чаще 2,5 Гц. Раньше
+    // герой мигал «сквозь кадр» шесть раз в секунду - и рвано, и против
+    // собственного правила «никаких мерцаний чаще 3 Гц».
+    let blinkA = 1;
+    if (p.hurt > 0) blinkA = 0.35 + 0.45 * (0.5 + 0.5 * Math.cos(p.hurt * Math.PI * 5));
+    const px = p.viewX ?? p.x;
+    const py = p.viewY ?? p.y;
+    if (this.puppet) {
+      this.puppet.draw(ctx, px, gy + py, { scale: p.scale, face: p.face, sx: p.sx, sy: p.sy, alpha: blinkA });
+      return;
+    }
     const f = atlas.frame(this.playerFrame());
     const w = f.w * p.scale * p.sx;
     const h = f.h * p.scale * p.sy;
     // кадр «лицом к игроку» не зеркалим: он симметричен по смыслу
     const facing = this.state === 'idleFront' && p.onGround ? false : p.flip;
     ctx.save();
-    ctx.translate(p.x, gy + p.y);
+    if (blinkA !== 1) ctx.globalAlpha *= blinkA;
+    ctx.translate(px, gy + py);
     if (facing) ctx.scale(-1, 1);
     ctx.drawImage(atlas.image, f.x, f.y, f.w, f.h, -w / 2, -h, w, h);
     ctx.restore();
@@ -556,14 +756,14 @@ export class GameScene {
     const g = this.nearGate;
     const d = g.def;
     const f = this.game.atlas.frame(d.frame);
-    const top = gy + (d.yOffset ?? 0) - f.h * (d.scale ?? 1) - 26;
+    const top = Math.min(gy + (d.yOffset ?? 0) - f.h * (d.scale ?? 1) - 26, gy - 250);
 
     ctx.save();
     ctx.globalAlpha = 0.95;
     ctx.font = font(24, 700);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    const label = this.tr('Пробел - решить');
+    const label = this.tr(this.game.input.touch ? 'Нажми «Решить»' : 'Пробел - решить');
     const w = Math.max(200, Math.ceil(ctx.measureText(label).width) + 48);
     ctx.fillStyle = '#fffaf0';
     paperPath(ctx, d.x - w / 2, top - 56, w, 58, 14, 15, 2.5);
@@ -577,10 +777,15 @@ export class GameScene {
   drawEnemies(ctx, gy) {
     const { atlas } = this.game;
     for (const e of this.enemies) {
+      const ex = e.viewX ?? e.x;
+      if (e.puppet) {
+        e.puppet.draw(ctx, ex, gy + Math.sin(e.t * 6) * 4, { scale: e.def.scale ?? 1, flip: e.dir < 0 });
+        continue;
+      }
       const frame = (Math.floor(e.t * 4) % 2 === 0 && e.def.frameMove) ? e.def.frameMove : e.def.frame;
       const bob = Math.sin(e.t * 6) * 6;
       // Клякса кисельная, поэтому пружинит заметнее прочих
-      atlas.draw(ctx, frame, e.x, gy + bob, {
+      atlas.draw(ctx, frame, ex, gy + bob, {
         ...this.breath(e.x * 0.02, e.def.scale ?? 1, 0.05, 3.4),
         flipX: e.dir < 0,
       });
@@ -600,7 +805,8 @@ export class GameScene {
   drawTalkPrompt(ctx, gy) {
     const n = this.nearNpc;
     const f = this.game.atlas.frame(n.frame);
-    const top = gy + (n.yOffset ?? 0) - f.h * (n.scale ?? 1) - 30;
+    // не ниже роста героя: у кота пузырь висел бы прямо на экранных кнопках
+    const top = Math.min(gy + (n.yOffset ?? 0) - f.h * (n.scale ?? 1) - 30, gy - 250);
 
     ctx.save();
     ctx.globalAlpha = 0.95;
@@ -610,7 +816,7 @@ export class GameScene {
 
     // ширина пузыря считается по самой надписи: по слогам она длиннее
     // («E - по-го-во-рить»), и в постоянные 230 px текст не влезал
-    const label = this.tr('Пробел - поговорить');
+    const label = this.tr(this.game.input.touch ? 'Нажми «Говорить»' : 'Пробел - поговорить');
     const w = Math.max(200, Math.ceil(ctx.measureText(label).width) + 48);
     const h = 58;
 
@@ -630,7 +836,7 @@ export class GameScene {
     const dw = img.width * s;
     const dh = img.height * s;
     const slack = dw - w;
-    const k = Math.max(0, Math.min(1, this.cameraX / Math.max(1, this.levelW - this.game.viewport.viewW)));
+    const k = Math.max(0, Math.min(1, this.camX / Math.max(1, this.levelW - this.game.viewport.viewW)));
     ctx.drawImage(img, -slack * k, h - dh, dw, dh);
   }
 
@@ -656,8 +862,8 @@ export class GameScene {
 
       // ряд кладётся в мировых координатах, поэтому наезд камеры достаётся
       // переднему плану сам собой - и он растёт сильнее остальных слоёв
-      viewport.applyWorld(this.cameraX, parallax, zoom, viewport.viewW / 2, focusY ?? gy);
-      const shift = this.cameraX * parallax;
+      viewport.applyWorld(this.camX, parallax, zoom, viewport.viewW / 2, focusY ?? gy);
+      const shift = this.camX * parallax;
       const from = Math.floor(shift / step) - 2;
       const to = from + Math.ceil(viewport.viewW / step) + 4;
       for (let i = from; i <= to; i++) {
@@ -673,8 +879,8 @@ export class GameScene {
     const w = f.w * scale;
     const step = w - 10;
     const y = gy + f.h * scale * 0.55;
-    const from = Math.floor((this.cameraX - w) / step);
-    const to = Math.ceil((this.cameraX + this.game.viewport.viewW + w) / step);
+    const from = Math.floor((this.camX - w) / step);
+    const to = Math.ceil((this.camX + this.game.viewport.viewW + w) / step);
     for (let i = from; i <= to; i++) {
       atlas.draw(ctx, 'ground_strip', i * step + w / 2, y, { scale, flipX: (i & 1) === 1 });
     }
@@ -690,6 +896,10 @@ export class GameScene {
     // цифр внизу, а лишние значки только отвлекают
     this.buttons.forEach((b, i) => drawButton(ctx, b, { hover: hit(b, this.game.input.pointer), seed: 61 + i * 3 }));
     this.drawNumberStrip(ctx, viewW, viewH, total);
+    const { viewport, progress } = this.game;
+    drawCoinBadge(ctx, 40 + viewport.inset.left, 28 + viewport.inset.top, progress.coins, {
+      h: viewport.atLeastPx(64, 44), seed: 9, bump: this.coinBump, time: this.game.time,
+    });
 
     if (this.showHint > 0) {
       ctx.save();
@@ -700,7 +910,8 @@ export class GameScene {
 
       // сначала разбиваем текст, потом уже режем лист нужной высоты
       const w = Math.min(1000, viewW * 0.74);
-      const lines = wrapText(ctx, this.tr(this.chapter.hint), w - 80);
+      const hintText = this.game.input.touch ? TOUCH_HINT : this.chapter.hint;
+      const lines = wrapText(ctx, this.tr(hintText), w - 80);
       const h = 56 + lines.length * 34;
 
       ctx.fillStyle = '#fffaf0';
@@ -721,16 +932,21 @@ export class GameScene {
 
     if (this.gameOver) {
       this.drawCard(ctx, viewW, viewH, 'Ой, Клякса тебя запачкала',
-        'Ничего страшного. Отряхнёмся и начнём главу заново - пробел или клик.');
+        this.game.input.touch
+          ? 'Ничего страшного. Отряхнёмся и пойдём дальше - нажми на экран.'
+          : 'Ничего страшного. Отряхнёмся и пойдём дальше - пробел или клик.');
     }
   }
 
   drawNumberStrip(ctx, viewW, viewH, total) {
     const { atlas } = this.game;
-    const cellW = 124, cellH = 124, gap = 18;
+    const gap = 18;
+    // на узком экране ячейки ужимаются, чтобы линейка целиком влезла
+    const maxCell = Math.floor((viewW - 80 - gap * (total - 1)) / Math.max(1, total));
+    const cellW = Math.max(56, Math.min(124, maxCell)), cellH = cellW;
     const totalW = total * cellW + (total - 1) * gap;
     let x = (viewW - totalW) / 2;
-    const y = viewH - cellH - 18;
+    const y = viewH - cellH - 18 - this.game.viewport.inset.bottom;
 
     for (let i = 0; i < total; i++) {
       const it = this.chapter.pickups[i];

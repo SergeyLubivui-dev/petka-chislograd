@@ -1,4 +1,4 @@
-import { PALETTE, paperPath, drawButton, hit, font, wrapText } from '../core/ui.js';
+import { PALETTE, paperPath, drawButton, hit, font, wrapText, drawCoinBadge, drawCoin, drawStar, playClick } from '../core/ui.js';
 import { shimmerText } from '../core/motion.js';
 import { readable } from '../core/text.js';
 import { drawSum, drawCount, drawMissingWord } from '../core/taskArt.js';
@@ -32,9 +32,11 @@ export class PracticeScene {
   }
 
   async enter() {
+    this.game.audio.play('practice');
     this.data = await this.game.api.content('practice');
     this.tab = 0;
     this.round = 0;
+    this.coinBump = 0;
     this.start(0);
   }
 
@@ -61,18 +63,23 @@ export class PracticeScene {
     this.hover = -1;
   }
 
+  /**
+   * Круг окончен: монеты за каждую решённую задачу и премия за полный круг.
+   * Лучший результат по вкладке хранит общий прогресс (`Progress`), а не
+   * отдельный ключ: так «знания» видны и на экране выбора глав.
+   */
   finish(timeout) {
     this.state = 'done';
     this.timeout = !!timeout;
-    this.best = readBest(this.sheet.id);
+    const { progress, audio } = this.game;
+    const prev = progress.bestFor(this.sheet.id);
     const now = { solved: this.solved, seconds: Math.round(this.spent), mistakes: this.mistakes };
-    if (isBetter(now, this.best)) {
-      this.best = now;
-      this.record = true;
-      writeBest(this.sheet.id, now);
-    } else {
-      this.record = false;
-    }
+    this.record = isBetter(now, prev);
+    this.earned = progress.practiceRound(this.sheet.id, now, this.sheet.tasks.length);
+    this.best = progress.bestFor(this.sheet.id);
+    this.coinBump = 1;
+    if (this.earned) audio.coin();
+    if (this.solved >= this.sheet.tasks.length) audio.fanfare();
   }
 
   // ---------- ввод ----------
@@ -92,11 +99,13 @@ export class PracticeScene {
       if (this.left <= 0) { this.left = 0; this.finish(true); }
     }
 
+    if (this.coinBump > 0) this.coinBump = Math.max(0, this.coinBump - dt * 1.4);
     this.layout();
     this.hover = this.buttons.findIndex((b) => hit(b, input.pointer));
     this.game.canvas.classList.toggle('pointer', this.hover >= 0);
 
     if (input.pointer.clicked && this.hover >= 0) {
+      playClick();
       this.choose(this.buttons[this.hover].id);
       return;
     }
@@ -105,7 +114,7 @@ export class PracticeScene {
         if (input.justPressed(`Digit${i + 1}`, `Numpad${i + 1}`)) this.choose(`opt:${i}`);
       }
     }
-    if (input.justPressed('Escape')) this.game.scenes.go('menu');
+    if (input.back) this.game.scenes.go('menu');
   }
 
   choose(id) {
@@ -120,10 +129,12 @@ export class PracticeScene {
       this.good = GOOD_TIME;
       this.wrong = 0;
       this.wrongOption = -1;
+      this.game.audio.correct();
     } else {
       this.mistakes += 1;
       this.wrong = WRONG_TIME;
       this.wrongOption = i;
+      this.game.audio.wrong();
     }
   }
 
@@ -142,20 +153,22 @@ export class PracticeScene {
 
     // вкладки слева, «домой» справа
     const tabs = this.data.tabs ?? [];
-    let x = 40;
+    const { inset } = this.game.viewport;
+    const th = this.game.viewport.atLeastPx(78, 48);
+    let x = 40 + inset.left;
     tabs.forEach((t, i) => {
       this.buttons.push({
-        id: `tab:${i}`, label: this.tr(t.title), x, y: 30, w: 260, h: 78,
+        id: `tab:${i}`, label: this.tr(t.title), x, y: 30 + inset.top, w: 260, h: th,
         color: i === this.tab ? PALETTE.yellow : PALETTE.paper,
       });
       x += 276;
     });
     this.buttons.push({
       id: 'home', label: this.tr(this.labels.home || 'Домой'),
-      x: viewW - 220, y: 30, w: 180, h: 78, color: PALETTE.paper,
+      x: viewW - 220 - inset.right, y: 30 + inset.top, w: 180, h: th, color: PALETTE.paper,
     });
 
-    this.bar = { x: 40, y: 132, w: viewW - 80, h: 26 };
+    this.bar = { x: 40 + inset.left, y: 132 + inset.top, w: viewW - 80 - inset.left - inset.right, h: 26 };
 
     if (this.state === 'done') {
       const bw = 300;
@@ -163,7 +176,7 @@ export class PracticeScene {
       let bx = (viewW - total) / 2;
       [['again', this.labels.again || 'Ещё раз', PALETTE.green],
         ['home', this.labels.home || 'Домой', PALETTE.paper]].forEach(([id, label, color]) => {
-        this.buttons.push({ id, label: this.tr(label), x: bx, y: viewH - 210, w: bw, h: 88, color });
+        this.buttons.push({ id, label: this.tr(label), x: bx, y: viewH - 150 - inset.bottom, w: bw, h: 88, color });
         bx += bw + 24;
       });
       return;
@@ -174,11 +187,12 @@ export class PracticeScene {
     const opts = task.options ?? [];
     const pictures = opts.every((o) => this.game.atlas.has(o));
 
+    // на низком экране (телефон) варианты ниже, чтобы задача над ними влезла
     const ow = pictures ? Math.min(330, (viewW - 200) / opts.length) : Math.min(300, (viewW - 200) / opts.length);
-    const oh = pictures ? 300 : 130;
+    const oh = pictures ? Math.min(300, viewH * 0.3) : Math.min(130, viewH * 0.13);
     const gap = 30;
     let ox = (viewW - (ow * opts.length + gap * (opts.length - 1))) / 2;
-    const oy = viewH - oh - 150;
+    const oy = viewH - oh - Math.min(150, viewH * 0.1) - inset.bottom;
     opts.forEach((o, i) => {
       this.buttons.push({
         id: `opt:${i}`, label: pictures ? '' : this.tr(o), frame: pictures ? o : null,
@@ -205,6 +219,13 @@ export class PracticeScene {
     else this.renderTask(ctx);
 
     this.drawTimer(ctx);
+    // кошелёк - между вкладками и «Домой»
+    const homeBtn = this.buttons.find((b) => b.id === 'home');
+    if (homeBtn) {
+      drawCoinBadge(ctx, homeBtn.x - 24, homeBtn.y + (homeBtn.h - 64) / 2, this.game.progress.coins, {
+        h: 64, seed: 9, bump: this.coinBump, time: this.game.time, align: 'right',
+      });
+    }
 
     this.buttons.forEach((b, i) => {
       const shaking = this.wrong > 0 && b.id === `opt:${this.wrongOption}`;
@@ -258,7 +279,7 @@ export class PracticeScene {
   renderTask(ctx) {
     const task = this.task;
     if (!task) return;
-    const { viewW } = this.game.viewport;
+    const { viewW, viewH } = this.game.viewport;
     const cx = viewW / 2;
 
     ctx.save();
@@ -272,32 +293,37 @@ export class PracticeScene {
     ctx.fillText(this.tr(this.good > 0 ? (this.labels.correct || 'Верно!') : hint), cx, 236);
     ctx.restore();
 
+    // область задачи - между подсказкой (y≈236) и вариантами ответа
+    const top = 250;
+    const bottom = (this.buttons.find((b) => b.id === 'opt:0')?.y ?? viewH - 300) - 20;
+    const mid = (top + bottom) / 2;
+    const room = Math.max(120, bottom - top);
     if (task.missing !== undefined) {
       // картинка сверху, под ней слово с пропуском: букву надо вставить
-      if (task.frame) this.drawBigPicture(ctx, task.frame, 380, 200);
-      drawMissingWord(ctx, task.missing, viewW / 2, 560, viewW * 0.7, 110);
-    } else if (task.word !== undefined) this.drawWord(ctx, task.word);
+      if (task.frame) this.drawBigPicture(ctx, task.frame, top + room * 0.32, room * 0.5);
+      drawMissingWord(ctx, task.missing, viewW / 2, top + room * 0.82, viewW * 0.7, Math.min(110, room * 0.28));
+    } else if (task.word !== undefined) this.drawWord(ctx, task.word, mid);
     else if (task.count !== undefined) {
-      drawCount(ctx, this.game.atlas, task, viewW / 2, 500, viewW * 0.8, 250, this.game.time);
-    } else if (task.a !== undefined) drawSum(ctx, this.game.atlas, task, viewW / 2, 430, 150);
-    else if (task.frame) this.drawBigPicture(ctx, task.frame);
+      drawCount(ctx, this.game.atlas, task, viewW / 2, mid + room * 0.1, viewW * 0.8, Math.min(250, room * 0.7), this.game.time);
+    } else if (task.a !== undefined) drawSum(ctx, this.game.atlas, task, viewW / 2, mid, Math.min(150, room * 0.5));
+    else if (task.frame) this.drawBigPicture(ctx, task.frame, mid, Math.min(300, room * 0.8));
   }
 
   /** Слово крупно - его и надо прочитать. */
-  drawWord(ctx, word) {
-    const { viewW } = this.game.viewport;
+  drawWord(ctx, word, cy = 420) {
+    const { viewW, viewH } = this.game.viewport;
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = PALETTE.ink;
-    let fs = 130;
+    let fs = Math.min(130, viewH * 0.14);
     ctx.font = font(fs, 800);
     const text = this.tr(word);
     while (ctx.measureText(text).width > viewW * 0.8 && fs > 40) {
       fs -= 4;
       ctx.font = font(fs, 800);
     }
-    ctx.fillText(text, viewW / 2, 420);
+    ctx.fillText(text, viewW / 2, cy);
     ctx.restore();
   }
 
@@ -327,8 +353,8 @@ export class PracticeScene {
     const { viewW, viewH } = this.game.viewport;
     const w = Math.min(1000, viewW * 0.8);
     const x = (viewW - w) / 2;
-    const y = 240;
-    const h = 420;
+    const y = 200;
+    const h = Math.min(500, viewH - 200 - 170);
 
     ctx.save();
     ctx.fillStyle = PALETTE.shadow;
@@ -354,16 +380,31 @@ export class PracticeScene {
       `${this.tr(this.labels.result || 'Решено')}: ${this.solved} ${this.tr(this.labels.of || 'из')} ${total}`,
       x + w / 2, y + 176,
     );
-    ctx.font = font(32, 600);
+    ctx.font = font(30, 600);
     ctx.fillStyle = '#8a6b53';
-    ctx.fillText(`${this.tr(this.labels.mistakes || 'Ошибок')}: ${this.mistakes}`, x + w / 2, y + 230);
-    ctx.fillText(`${this.tr('Время')}: ${clock(this.spent)}`, x + w / 2, y + 278);
+    ctx.fillText(`${this.tr(this.labels.mistakes || 'Ошибок')}: ${this.mistakes}   ·   ${this.tr('Время')}: ${clock(this.spent)}`, x + w / 2, y + 226);
+
+    // награда: монетки за круг и звёзды «знаний» по вкладке
+    const earned = this.earned ?? 0;
+    ctx.font = font(34, 800);
+    ctx.fillStyle = PALETTE.ink;
+    const label = `+${earned}`;
+    const lw = ctx.measureText(label).width + 56;
+    drawCoin(ctx, x + w / 2 - lw / 2 + 20, y + 280, 22, { spin: this.coinBump > 0 ? this.game.time * 8 : 0 });
+    ctx.textAlign = 'left';
+    ctx.fillText(label, x + w / 2 - lw / 2 + 56, y + 280 + 12);
+    ctx.textAlign = 'center';
+    const stars = this.game.progress.stars(this.sheet.id, total);
+    for (let i = 0; i < 3; i++) drawStar(ctx, x + w / 2 - 48 + i * 48, y + 344, 20, i < stars);
+    ctx.font = font(22, 600);
+    ctx.fillStyle = '#8a6b53';
+    ctx.fillText(this.tr(stars >= 3 ? 'Все задачи решены!' : 'Реши все задачи в круге - получишь три звезды'), x + w / 2, y + 392);
 
     if (this.best) {
-      ctx.font = font(28, 600);
+      ctx.font = font(26, 600);
       ctx.fillStyle = this.record ? '#5f8c3f' : '#a08160';
       const best = `${this.tr(this.labels.best || 'Лучший раз')}: ${this.best.solved} ${this.tr(this.labels.of || 'из')} ${total}, ${clock(this.best.seconds)}`;
-      wrapText(ctx, best, w - 120).forEach((line, i) => ctx.fillText(line, x + w / 2, y + 340 + i * 36));
+      wrapText(ctx, best, w - 120).forEach((line, i) => ctx.fillText(line, x + w / 2, y + 440 + i * 34));
     }
     ctx.restore();
     void viewH;
@@ -397,12 +438,4 @@ function isBetter(now, best) {
   if (!best) return true;
   if (now.solved !== best.solved) return now.solved > best.solved;
   return now.seconds < best.seconds;
-}
-
-function readBest(id) {
-  try { return JSON.parse(localStorage.getItem(`petka.practice.${id}`)) || null; } catch { return null; }
-}
-
-function writeBest(id, value) {
-  try { localStorage.setItem(`petka.practice.${id}`, JSON.stringify(value)); } catch { /* приватный режим */ }
 }

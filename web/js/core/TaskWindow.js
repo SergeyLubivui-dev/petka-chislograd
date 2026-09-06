@@ -1,4 +1,4 @@
-import { PALETTE, paperPath, drawButton, hit, font, wrapText, ghostFrame } from './ui.js';
+import { PALETTE, paperPath, drawButton, hit, font, wrapText, ghostFrame, playClick } from './ui.js';
 import { readable } from './text.js';
 import { drawSum, drawCount, drawMissingWord } from './taskArt.js';
 
@@ -78,6 +78,8 @@ export class TaskWindow {
       return;
     }
 
+    // «Потом» - закрыть без ответа: на планшете Esc нет
+    this.buttons.push({ id: 'close', label: this.tr('Потом'), x: x + w - 190, y: y + 24, w: 160, h: 58, color: PALETTE.paper });
     const opts = this.task?.options ?? [];
     const ow = Math.min(240, (w - 160 - 26 * (opts.length - 1)) / Math.max(1, opts.length));
     let ox = x + (w - (ow * opts.length + 26 * (opts.length - 1))) / 2;
@@ -104,7 +106,7 @@ export class TaskWindow {
     this.hover = this.buttons.findIndex((b) => hit(b, input.pointer));
     this.game.canvas.classList.toggle('pointer', this.hover >= 0);
 
-    if (input.pointer.clicked && this.hover >= 0) { this.choose(this.buttons[this.hover].id); return; }
+    if (input.pointer.clicked && this.hover >= 0) { playClick(); this.choose(this.buttons[this.hover].id); return; }
     if (this.mode === 'task') {
       for (let i = 0; i < 3; i++) {
         if (input.justPressed(`Digit${i + 1}`, `Numpad${i + 1}`)) this.choose(`opt:${i}`);
@@ -123,10 +125,12 @@ export class TaskWindow {
     if (i === this.task.answer) {
       this.state = 'ok';
       this.t = 0;
+      this.game.audio.correct();
       this.onSolved?.();
     } else {
       this.wrong = WRONG_TIME;
       this.wrongOption = i;
+      this.game.audio.wrong();
     }
   }
 

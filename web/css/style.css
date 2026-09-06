@@ -35,12 +35,26 @@ html, body {
   -webkit-font-smoothing: antialiased;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: none;
+  -webkit-touch-callout: none;       /* iOS: долгое нажатие не открывает меню */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;                /* жесты браузера (прокрутка, зум) отданы игре */
+  overscroll-behavior: none;
 }
 
-#stage { position: fixed; inset: 0; background: var(--ink); }
+/* На планшете системный курсор не нужен; на компьютере - бумажная стрелка. */
+@media (pointer: coarse) {
+  html, body, #game { cursor: none; }
+}
 
-/* Канвас занимает всё окно: адаптация под формат монитора выполняется
+#stage {
+  position: fixed;
+  inset: 0;
+  background: var(--ink);
+  /* 100dvh: адресная строка мобильного браузера не отъедает низ экрана */
+  height: 100dvh;
+}
+
+/* Канвас занимает всё окно: адаптация под формат экрана выполняется
    внутри игры (Viewport), а не средствами CSS. */
 #game {
   position: absolute;
@@ -49,6 +63,7 @@ html, body {
   height: 100%;
   display: block;
   cursor: var(--cursor);
+  touch-action: none;
 }
 
 /* Наведение на кнопку: та же стрелка, но крупнее - «поднялась» над листом.
@@ -56,6 +71,19 @@ html, body {
 #game.pointer { cursor: var(--cursor-hover); }
 #game.grab { cursor: var(--cursor-hover); }
 #game.grabbing { cursor: var(--cursor-hover); }
+
+/* Через этот элемент JS узнаёт вырезы экрана (чёлку) в пикселях. */
+#safe-probe {
+  position: absolute;
+  left: 0; top: 0;
+  width: 0; height: 0;
+  visibility: hidden;
+  pointer-events: none;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
 
 #boot {
   position: absolute;
@@ -69,3 +97,39 @@ html, body {
   transition: opacity .35s ease;
 }
 #boot.hidden { opacity: 0; pointer-events: none; }
+
+/* Просьба повернуть устройство: показывается только в портретной ориентации
+   на экранах с касанием. Игра под ней продолжает работать. */
+#rotate {
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  background: rgba(74, 52, 39, .92);
+  z-index: 10;
+}
+body.portrait #rotate { display: grid; }
+@media (pointer: fine) and (min-width: 700px) {
+  /* на мониторе портрет бывает только у окна - не мешаем разработке */
+  body.portrait #rotate { display: none; }
+}
+.rotate-card {
+  background: #fffaf0;
+  color: #5a3f2e;
+  border: 4px solid #5a3f2e;
+  border-radius: 26px;
+  padding: 28px 36px;
+  text-align: center;
+  box-shadow: 6px 10px 0 rgba(90, 63, 46, .22);
+  max-width: 80vw;
+}
+.rotate-icon { animation: rotate-hint 2.4s ease-in-out infinite; transform-origin: 50% 50%; }
+@keyframes rotate-hint {
+  0%, 20% { transform: rotate(0deg); }
+  50%, 70% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
+}
+.rotate-text { font-weight: 700; font-size: clamp(20px, 5vw, 32px); line-height: 1.3; margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .rotate-icon { animation: none; transform: rotate(-90deg); }
+}

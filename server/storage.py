@@ -25,7 +25,7 @@ def data_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-DEFAULT = {"chapter": "chapter_01", "collected": [], "hints_used": 0, "seconds_played": 0}
+DEFAULT: dict = {}   # пустой прогресс: клиент сам создаёт структуру (web/js/core/Progress.js)
 
 
 class Storage:

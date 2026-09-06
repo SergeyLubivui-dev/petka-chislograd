@@ -2,6 +2,24 @@ import { PALETTE, wrapText, drawButton, hit, font, paperPath } from '../core/ui.
 import { StreamText, Tween, easeOutExpo, REDUCED } from '../core/motion.js';
 import { syllabifyText } from '../core/syllables.js';
 import { readable } from '../core/text.js';
+import { playClick } from '../core/ui.js';
+
+/**
+ * На планшете клавиш нет: подписи «→ D», «↑ W», «пробел» на страницах
+ * обучения заменяются на экранные кнопки. Данные главы при этом не меняются -
+ * замена делается при показе, по смыслу действия.
+ */
+function touchCap(cap, text) {
+  const t = String(text || '').toLowerCase();
+  if (/→|←|d\b|a\b/i.test(cap)) return '◀ ▶';
+  if (/↑|w\b/i.test(cap)) return '⤒';
+  if (/пробел|space|e\b/i.test(cap)) {
+    if (t.includes('говор')) return '«Говорить»';
+    if (t.includes('реш')) return '«Решить»';
+    return 'Кнопка';
+  }
+  return cap;
+}
 
 /**
  * Вступление главы: несколько страниц подряд, лист за листом.
@@ -41,6 +59,7 @@ export class StoryScene {
     this.pageT = 0;
     this.buttons = [];
     this.hover = -1;
+    this.game.audio.play('story');
     const chapter = await this.game.api.content(this.chapterId);
     this.game.chapter = chapter;
     // главы без `intro` продолжают работать: их `story` - это те же текстовые страницы
@@ -101,7 +120,7 @@ export class StoryScene {
 
   next() {
     if (!this.revealed) { this.revealAll(); return; }
-    if (!this.isLast) this.open(this.page + 1);
+    if (!this.isLast) { this.game.audio.page(); this.open(this.page + 1); }
     else this.game.scenes.go('game', { chapter: this.chapterId });
   }
 
@@ -126,13 +145,16 @@ export class StoryScene {
     this.btnW.set(label === 'Начать' ? 340 : 280);
     const w = this.btnW.update(dt);
 
+    const { viewport } = this.game;
+    const { inset } = viewport;
+    const th = viewport.atLeastPx(72, 46);
     this.buttons = [
-      { id: 'next', label, x: viewW / 2 - w / 2, y: viewH - 170, w, h: 84, color: PALETTE.green },
+      { id: 'next', label, x: viewW / 2 - w / 2, y: viewH - 170 - inset.bottom, w, h: viewport.atLeastPx(84, 52), color: PALETTE.green },
       {
         id: 'syllables', label: settings.syllables ? 'По сло-гам: да' : 'По слогам: нет',
-        x: 40, y: 34, w: 320, h: 72, color: settings.syllables ? PALETTE.yellow : PALETTE.paper,
+        x: 40 + inset.left, y: 34 + inset.top, w: 320, h: th, color: settings.syllables ? PALETTE.yellow : PALETTE.paper,
       },
-      { id: 'skip', label: 'Пропустить', x: viewW - 300, y: 34, w: 260, h: 72, color: PALETTE.paper },
+      { id: 'skip', label: 'Пропустить', x: viewW - 300 - inset.right, y: 34 + inset.top, w: 260, h: th, color: PALETTE.paper },
     ];
 
     this.hover = this.buttons.findIndex((b) => hit(b, input.pointer));
@@ -141,13 +163,14 @@ export class StoryScene {
     if (input.pointer.clicked) {
       // клик мимо кнопок - это тоже «дальше»: попасть по кнопке ребёнку сложнее
       const id = this.hover >= 0 ? this.buttons[this.hover].id : 'next';
+      if (this.hover >= 0) playClick();
       if (id === 'skip') this.game.scenes.go('game', { chapter: this.chapterId });
       else if (id === 'syllables') this.toggleSyllables();
       else this.next();
       return;
     }
     if (input.justPressed('Space', 'Enter')) this.next();
-    if (input.justPressed('Escape')) this.game.scenes.go('menu');
+    if (input.back) this.game.scenes.go('chapters');
   }
 
   // ---------- отрисовка ----------
@@ -275,8 +298,9 @@ export class StoryScene {
     const maxW = Math.min(1580, viewport.viewW * 0.94);
     const cw = Math.min(292, (maxW - gap * (n - 1)) / n);
     // высота с запасом: на узком экране карточки уже, и описание переносится
-    // на большее число строк
-    const ch = 620;
+    // на большее число строк. На низком экране (телефон) карточка ужимается
+    // до места между заголовком и точками-страницами
+    const ch = Math.min(620, viewport.viewH - 186 - 250);
     let x = (viewport.viewW - (cw * n + gap * (n - 1))) / 2;
 
     cast.forEach((c, i) => {
@@ -303,7 +327,7 @@ export class StoryScene {
     // спрайт вписывается в верхнюю часть карточки целиком: у героев очень
     // разные пропорции, поэтому масштаб считается по размеру кадра
     const f = atlas.frame(c.frame);
-    const boxW = w - 44, boxH = 244;
+    const boxW = w - 44, boxH = Math.min(244, h * 0.38);
     const baseY = y + 28 + boxH;
     atlas.draw(ctx, c.frame, x + w / 2, baseY, { scale: Math.min(boxW / f.w, boxH / f.h) });
 
@@ -433,7 +457,8 @@ export class StoryScene {
       ctx.fillStyle = PALETTE.ink;
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'center';
-      fitText(ctx, this.tr(k.cap), x + capW / 2, ry + capH / 2 + 2, capW - 24, 28, 800);
+      const cap = this.game.input.touch || this.game.viewport.coarse ? touchCap(k.cap, k.text) : k.cap;
+      fitText(ctx, this.tr(cap), x + capW / 2, ry + capH / 2 + 2, capW - 24, 28, 800);
       ctx.textAlign = 'left';
       ctx.font = font(30, 600);
       ctx.fillText(this.tr(k.text), x + capW + textGap, ry + capH / 2 + 2);
