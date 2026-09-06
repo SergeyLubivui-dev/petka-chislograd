@@ -7,9 +7,13 @@
 import { Viewport } from './core/Viewport.js';
 import { Input } from './core/Input.js';
 import { Atlas } from './core/Atlas.js';
-import { loadAll } from './core/Loader.js';
+import { Audio } from './core/Audio.js';
+import { Progress } from './core/Progress.js';
+import { loadAll, loadImage, loadJSON } from './core/Loader.js';
 import { SceneManager } from './core/SceneManager.js';
+import { setClickSound } from './core/ui.js';
 import { MenuScene } from './scenes/MenuScene.js';
+import { ChapterScene } from './scenes/ChapterScene.js';
 import { StoryScene } from './scenes/StoryScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { PracticeScene } from './scenes/PracticeScene.js';
@@ -20,6 +24,15 @@ const api = {
     const r = await fetch(`/api/content/${name}`, { cache: 'no-cache' });
     if (!r.ok) throw new Error(`Не удалось загрузить главу ${name}`);
     return r.json();
+  },
+  async chapters() {
+    try {
+      const r = await fetch('/api/chapters', { cache: 'no-cache' });
+      if (!r.ok) throw new Error('chapters');
+      return await r.json();
+    } catch {
+      return [{ id: 'chapter_01', number: 1, title: 'Часовая площадь', cost: 0 }];
+    }
   },
   async progress() {
     try { return await (await fetch('/api/progress')).json(); } catch { return null; }
@@ -79,6 +92,29 @@ function readFlag(key, fallback) {
   } catch { return fallback; }
 }
 
+/**
+ * Марионетки персонажей (`assets/rig/`) - необязательный ресурс: если папки
+ * нет или она не собралась, игра рисует старые кадры из атласа.
+ */
+async function loadRigs() {
+  try {
+    const data = await loadJSON('assets/rig/rig.json');
+    const names = new Set();
+    for (const rig of Object.values(data.rigs ?? data)) {
+      const img = rig.image ?? data.image;
+      if (img) names.add(img);
+      for (const p of rig.parts ?? []) if (p.image) names.add(p.image);
+    }
+    if (data.image) names.add(data.image);
+    const images = {};
+    await Promise.all([...names].map(async (n) => { images[n] = await loadImage(`assets/rig/${n}`); }));
+    return { data, images };
+  } catch (e) {
+    console.warn('Марионетки не загружены, рисуем кадры атласа:', e.message);
+    return null;
+  }
+}
+
 async function boot() {
   const canvas = document.getElementById('game');
   const bootEl = document.getElementById('boot');
@@ -89,25 +125,37 @@ async function boot() {
 
   const viewport = new Viewport(canvas);
   const input = new Input(canvas, viewport);
+  const audio = new Audio();
+  const progress = new Progress(api);
+  setClickSound(() => audio.click());
 
-  const res = await loadAll([
-    { key: 'atlasImg', src: 'assets/atlas/atlas.png' },
-    { key: 'atlasData', src: 'assets/atlas/atlas.json', type: 'json' },
-    { key: 'menuBg', src: 'assets/bg/menu.png' },
-    { key: 'farBg', src: 'assets/bg/far.png' },
-  ], (p) => setBootText(`Загрузка ${Math.round(p * 100)} %`));
+  const [res, rigs, chapters] = await Promise.all([
+    loadAll([
+      { key: 'atlasImg', src: 'assets/atlas/atlas.png' },
+      { key: 'atlasData', src: 'assets/atlas/atlas.json', type: 'json' },
+      { key: 'menuBg', src: 'assets/bg/menu.png' },
+      { key: 'farBg', src: 'assets/bg/far.png' },
+    ], (p) => setBootText(`Загрузка ${Math.round(p * 100)} %`)),
+    loadRigs(),
+    api.chapters(),
+  ]);
+  progress.sync();   // сервер может ответить позже - экран выбора глав перерисует сам
 
   const game = {
-    canvas, viewport, input, api, settings,
+    canvas, viewport, input, api, settings, audio, progress,
     atlas: new Atlas(res.atlasImg, res.atlasData),
     assets: { menuBg: res.menuBg, farBg: res.farBg },
+    rigs,
+    chapters,            // список глав с сервера: номер, название, цена
     chapter: null,
     time: 0,
   };
 
   const scenes = new SceneManager(game);
   game.scenes = scenes;
+  window.petka = game;   // для отладки в консоли и автотестов
   scenes.register('menu', new MenuScene(game));
+  scenes.register('chapters', new ChapterScene(game));
   scenes.register('story', new StoryScene(game));
   scenes.register('game', new GameScene(game));
   scenes.register('practice', new PracticeScene(game));
@@ -115,16 +163,29 @@ async function boot() {
   // при первом запуске сначала спрашиваем, как ребёнок читает
   scenes.set(settings.chosen ? 'menu' : 'reader');
 
+  audio.preload(['menu', 'chapters', 'story', 'practice', 'game_01', 'game_02', 'game_03', 'game_04']);
   bootEl.classList.add('hidden');
 
   const STEP = 1 / 60;
   let acc = 0;
   let last = performance.now();
 
+  /**
+   * Логика идёт фиксированным шагом, отрисовка - с частотой монитора,
+   * поэтому между кадрами почти всегда остаётся «хвост» времени (`acc`).
+   * Если рисовать по последнему шагу логики, на 120-герцевом экране каждый
+   * второй кадр повторяет предыдущий, и движение выглядит рваным.
+   *
+   *   game.alpha   - доля до следующего шага (0..1): сцены смешивают по ней
+   *                  прошлое и текущее положение и рисуют промежуточный кадр;
+   *   game.frameDt - реальное время кадра: по нему живут чисто визуальные
+   *                  вещи (позы марионеток), которым детерминизм не нужен.
+   */
   function frame(now) {
     let dt = (now - last) / 1000;
     last = now;
     if (dt > 0.25) dt = 0.25;          // защита от скачка при сворачивании окна
+    game.frameDt = dt;
     acc += dt;
     while (acc >= STEP) {
       game.time += STEP;
@@ -132,6 +193,7 @@ async function boot() {
       input.endFrame();
       acc -= STEP;
     }
+    game.alpha = acc / STEP;
     scenes.render();
     requestAnimationFrame(frame);
   }

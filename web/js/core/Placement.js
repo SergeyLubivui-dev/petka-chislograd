@@ -1,4 +1,4 @@
-import { PALETTE, paperPath, hit, font, wrapText, ghostFrame } from './ui.js';
+import { PALETTE, paperPath, hit, font, wrapText, ghostFrame, drawButton, playClick } from './ui.js';
 import { readable } from './text.js';
 
 /**
@@ -89,6 +89,8 @@ export class Placement {
     // Снизу оставлено место под подпись, сверху - под стрелку-подсказку.
     this.homeH = Math.max(90, Math.min(170, h - (sy - y) - sh - 180));
     this.home = { cx: x + w / 2, cy: sy + sh + DIGIT_GAP + this.homeH / 2 };
+    // «Потом»: цифра остаётся на уровне. На планшете Esc нет, нужна кнопка
+    this.closeBtn = { id: 'close', label: this.tr('Потом'), x: x + w - 190, y: y + 24, w: 160, h: 58, color: PALETTE.paper };
   }
 
   /** Прямоугольник найденной цифры - за него можно схватить. */
@@ -128,6 +130,7 @@ export class Placement {
         this.held = false;
         this.drag = null;
       }
+      if (this.closeBtn && hit(this.closeBtn, p)) { playClick(); this.close(); return; }
       // промах мимо трафаретов - просто вернуть цифру на место, без «неверно»
       if (target >= 0) this.drop(target);
     }
@@ -146,10 +149,12 @@ export class Placement {
       this.t = 0;
       this.held = false;
       this.drag = null;
+      this.game.audio.correct();
       this.onDone?.(this.item);
     } else {
       this.wrong = WRONG_TIME;
       this.wrongSlot = i;
+      this.game.audio.wrong();
     }
   }
 
@@ -179,6 +184,7 @@ export class Placement {
     ctx.restore();
 
     this.drawTitle(ctx);
+    if (this.state !== 'ok') drawButton(ctx, this.closeBtn, { hover: hit(this.closeBtn, this.game.input.pointer), seed: 29 });
     this.slots.forEach((s, i) => this.drawSlot(ctx, s, i));
     if (this.state !== 'ok') {
       if (!this.held) this.drawArrow(ctx);
@@ -300,7 +306,7 @@ export class Placement {
     let text;
     if (this.state === 'ok') text = 'Цифра вернулась на место.';
     else if (this.wrong > 0) text = 'Не сюда. Смотри на форму.';
-    else text = 'Перетащи цифру наверх. Или нажми 1, 2, 3.';
+    else text = this.game.input.touch ? 'Перетащи цифру наверх. Или нажми на трафарет.' : 'Перетащи цифру наверх. Или нажми 1, 2, 3.';
 
     ctx.save();
     ctx.textAlign = 'center';

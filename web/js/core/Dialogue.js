@@ -1,4 +1,4 @@
-import { PALETTE, paperPath, wrapText, drawButton, hit, font } from './ui.js';
+import { PALETTE, paperPath, wrapText, drawButton, hit, font, playClick } from './ui.js';
 import { Tween } from './motion.js';
 import { readable } from './text.js';
 
@@ -24,6 +24,7 @@ export class Dialogue {
     this.solved = new Set();
     this.hT = new Tween(0);   // высота панели тянется, а не прыгает
     this._first = true;
+    this.onSolved = null;     // (key) - задача собеседника решена
   }
 
   /** Текст с учётом режима чтения по слогам (настройка из главного меню). */
@@ -57,6 +58,7 @@ export class Dialogue {
     let h;
     if (this.mode === 'topics') h = HEAD + n * (bh + gap) + 104;
     else if (this.mode === 'puzzle') h = HEAD + 190 + 96;
+    else if (this.mode === 'text' && this.topic?.puzzle) h = HEAD + 150 + 26;
     else if (this.mode === 'result') h = HEAD + 130;
     else h = HEAD + 150;
     h = Math.min(h, viewH - 120);
@@ -84,6 +86,10 @@ export class Dialogue {
       this.buttons.push({ id: 'close', label: 'Закрыть', x: x + w - 260, y: y + h - 84, w: 200, h: 64, color: PALETTE.green });
     } else if (this.mode === 'text') {
       this.buttons.push({ id: 'back', label: 'Назад', x: x + 60, y: y + h - 84, w: 200, h: 64, color: PALETTE.paper });
+      // к задаче ведёт кнопка, а не только пробел: на планшете пробела нет
+      if (this.topic?.puzzle) {
+        this.buttons.push({ id: 'puzzle', label: 'К задаче', x: x + (w - 260) / 2, y: y + h - 84, w: 260, h: 64, color: PALETTE.yellow });
+      }
       this.buttons.push({ id: 'close', label: 'Закрыть', x: x + w - 260, y: y + h - 84, w: 200, h: 64, color: PALETTE.green });
     } else if (this.mode === 'puzzle') {
       const opts = this.topic.puzzle.options;
@@ -108,6 +114,7 @@ export class Dialogue {
     if (id === 'close') { this.close(); return; }
     if (id === 'back') { this.mode = 'topics'; this.topic = null; this.result = null; return; }
     if (id === 'retry') { this.mode = 'puzzle'; this.result = null; return; }
+    if (id === 'puzzle') { if (this.topic?.puzzle) this.mode = 'puzzle'; return; }
 
     if (id.startsWith('topic:')) {
       const i = Number(id.split(':')[1]);
@@ -121,7 +128,13 @@ export class Dialogue {
       const pz = this.topic.puzzle;
       const ok = i === pz.answer;
       this.result = { ok, text: ok ? pz.correct : pz.wrong };
-      if (ok) this.solved.add(`${this.npc.id}:${this.topicIndex}`);
+      if (ok) {
+        this.solved.add(`${this.npc.id}:${this.topicIndex}`);
+        this.game.audio.correct();
+        this.onSolved?.(`${this.npc.id}:${this.topicIndex}`);
+      } else {
+        this.game.audio.wrong();
+      }
       this.mode = 'result';
     }
   }
@@ -135,7 +148,7 @@ export class Dialogue {
     this.hover = this.buttons.findIndex((b) => hit(b, p));
     this.game.canvas.classList.toggle('pointer', this.hover >= 0);
 
-    if (p.clicked && this.hover >= 0) this.choose(this.buttons[this.hover].id);
+    if (p.clicked && this.hover >= 0) { playClick(); this.choose(this.buttons[this.hover].id); }
 
     // быстрый выбор цифрами 1..3
     for (let i = 0; i < 3; i++) {
@@ -198,7 +211,7 @@ export class Dialogue {
     if (this.mode === 'topics') body = this.npc.dialogue.greeting;
     // текст темы бывает развилкой по уровню чтения, поэтому сначала разбираем
     // его, и только потом дописываем подсказку про пробел
-    else if (this.mode === 'text') body = this.tr(this.topic.text) + (this.topic.puzzle ? '\n(пробел - к задаче)' : '');
+    else if (this.mode === 'text') body = this.tr(this.topic.text) + (this.topic.puzzle && !this.game.input.touch ? '\n(пробел - к задаче)' : '');
     else if (this.mode === 'puzzle') body = this.topic.puzzle.question;
     else if (this.mode === 'result') body = this.result.text;
     body = this.tr(body);

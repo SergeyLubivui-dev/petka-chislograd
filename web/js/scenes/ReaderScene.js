@@ -1,4 +1,4 @@
-import { PALETTE, drawButton, hit, font, wrapText } from '../core/ui.js';
+import { PALETTE, drawButton, hit, font, wrapText, playClick } from '../core/ui.js';
 import { syllabifyText } from '../core/syllables.js';
 
 /**
@@ -89,6 +89,7 @@ export class ReaderScene {
       if (input.justPressed(`Digit${i + 1}`, `Numpad${i + 1}`)) choice = i;
     }
     if (choice >= 0) {
+      playClick();
       const card = this.cards[choice];
       settings.setLevel(card.level, card.syllables);
       scenes.go(this.back);

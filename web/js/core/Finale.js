@@ -1,4 +1,4 @@
-import { PALETTE, paperPath, wrapText, drawButton, hit, font } from './ui.js';
+import { PALETTE, paperPath, wrapText, drawButton, hit, font, playClick } from './ui.js';
 import { shimmerText } from './motion.js';
 import { readable } from './text.js';
 import { drawSum } from './taskArt.js';
@@ -36,6 +36,7 @@ export class Finale {
     this.onRestart = null;
     this.onMenu = null;
     this.onClose = null;
+    this.onDone = null;       // все задачи финала решены - глава засчитана
   }
 
   /**
@@ -109,7 +110,7 @@ export class Finale {
     } else {
       const labels = [
         { id: 'again', label: 'Играть снова', color: PALETTE.green },
-        { id: 'menu', label: 'В меню', color: PALETTE.paper },
+        { id: 'menu', label: 'К главам', color: PALETTE.paper },
         { id: 'close', label: 'Закрыть', color: PALETTE.paper },
       ];
       const bw = Math.min(320, (w - 160 - 24 * (labels.length - 1)) / labels.length);
@@ -134,6 +135,7 @@ export class Finale {
     this.game.canvas.classList.toggle('pointer', this.hover >= 0);
 
     if (input.pointer.clicked && this.hover >= 0) {
+      playClick();
       this.choose(this.buttons[this.hover].id);
       return;
     }
@@ -153,6 +155,7 @@ export class Finale {
       this.step = this.tasks.length ? 'task' : 'done';
       this.task = 0;
       this.t = 0;
+      if (this.step === 'done') this.onDone?.();
       return;
     }
     if (id === 'again') { this.active = false; this.onRestart?.(); return; }
@@ -166,11 +169,13 @@ export class Finale {
       if (i === t.answer) {
         this.wrong = 0;
         this.wrongOption = -1;
+        this.game.audio.correct();
         if (this.task < this.tasks.length - 1) { this.task += 1; this.t = 0; }
-        else { this.step = 'done'; this.t = 0; }
+        else { this.step = 'done'; this.t = 0; this.onDone?.(); }
       } else {
         this.wrong = 0.6;
         this.wrongOption = i;
+        this.game.audio.wrong();
       }
     }
   }
@@ -294,7 +299,7 @@ export class Finale {
 
     const hint = this.wrong > 0
       ? (this.data.wrong || 'Посчитай ещё раз.')
-      : (this.data.hint || 'Нажми на верный ответ. Или клавишу 1, 2, 3.');
+      : (this.game.input.touch ? 'Нажми на верный ответ.' : (this.data.hint || 'Нажми на верный ответ. Или клавишу 1, 2, 3.'));
     this.line(ctx, this.tr(hint), y + 470, 28, this.wrong > 0 ? PALETTE.red : '#8a6b53');
   }
 
