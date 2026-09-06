@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Марионетки - проверка</title>
+<style>
+  body { margin: 0; background: #f6efe1; font-family: Comfortaa, system-ui, sans-serif; color: #3b2a1f; }
+  #bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 12px; background: #efe4cf; border-bottom: 2px solid #d9c9a8; }
+  #bar button { font: inherit; padding: 6px 12px; border-radius: 10px; border: 2px solid #5a3f2e; background: #fffaf0; cursor: pointer; }
+  #bar button.on { background: #f2c14e; }
+  #bar label { margin-left: 10px; }
+  canvas { display: block; }
+  #hint { padding: 6px 12px; font-size: 13px; opacity: .7; }
+</style>
+</head>
+<body>
+  <div id="bar">
+    <span>Петька:</span>
+    <button data-state="idle">idle (1)</button>
+    <button data-state="walk">walk (2)</button>
+    <button data-state="jump">jump (3 / пробел)</button>
+    <button data-state="hello">hello (4)</button>
+    <button data-state="hurt">hurt (5)</button>
+    <button data-state="idleFront">idleFront (6)</button>
+    <span style="margin-left:14px">NPC:</span>
+    <button data-npc="idle" class="on">idle (7)</button>
+    <button data-npc="talk">talk (8)</button>
+    <button id="flip">flip (F)</button>
+    <button id="pause">пауза (P)</button>
+    <button id="sheet">контрольный лист (S)</button>
+    <label>скорость <input id="speed" type="range" min="0" max="2" step="0.05" value="1"> <span id="speedv">1.0</span></label>
+    <label><input id="orig" type="checkbox" checked> исходный кадр рядом</label>
+  </div>
+  <div id="hint">Клавиши: 1-8 состояния, пробел - прыжок, F - разворот, P - пауза, S - контрольный лист (все фазы).</div>
+  <canvas id="c"></canvas>
+  <script type="module" src="js/rigtest.js"></script>
+</body>
+</html>

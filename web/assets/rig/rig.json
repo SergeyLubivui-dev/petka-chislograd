@@ -1,0 +1,939 @@
+{
+ "image": "rig.png",
+ "rigs": {
+  "petka": {
+   "source": "petka_stand",
+   "unit": 1.0,
+   "height": 341,
+   "width": 178,
+   "origin": [
+    89,
+    341
+   ],
+   "parts": [
+    {
+     "name": "shin_far",
+     "parent": "thigh_far",
+     "z": 0,
+     "pivot": [
+      28,
+      24
+     ],
+     "world": [
+      85,
+      296
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 73,
+     "h": 69,
+     "rect": [
+      946,
+      652,
+      73,
+      69
+     ]
+    },
+    {
+     "name": "thigh_far",
+     "parent": "torso",
+     "z": 1,
+     "pivot": [
+      40,
+      16
+     ],
+     "world": [
+      87,
+      226
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 79,
+     "h": 111,
+     "rect": [
+      866,
+      501,
+      79,
+      111
+     ]
+    },
+    {
+     "name": "forearm_far",
+     "parent": "upperarm_far",
+     "z": 2,
+     "pivot": [
+      23,
+      20
+     ],
+     "world": [
+      69,
+      213
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 47,
+     "h": 76,
+     "rect": [
+      714,
+      652,
+      47,
+      76
+     ]
+    },
+    {
+     "name": "upperarm_far",
+     "parent": "torso",
+     "z": 3,
+     "pivot": [
+      24,
+      8
+     ],
+     "world": [
+      70,
+      140
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 47,
+     "h": 102,
+     "rect": [
+      209,
+      652,
+      47,
+      102
+     ]
+    },
+    {
+     "name": "shin_near",
+     "parent": "thigh_near",
+     "z": 4,
+     "pivot": [
+      28,
+      24
+     ],
+     "world": [
+      80,
+      296
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 73,
+     "h": 69,
+     "rect": [
+      2,
+      765,
+      73,
+      69
+     ]
+    },
+    {
+     "name": "thigh_near",
+     "parent": "torso",
+     "z": 5,
+     "pivot": [
+      40,
+      16
+     ],
+     "world": [
+      82,
+      226
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 79,
+     "h": 111,
+     "rect": [
+      2,
+      652,
+      79,
+      111
+     ]
+    },
+    {
+     "name": "backpack",
+     "parent": "torso",
+     "z": 6,
+     "pivot": [
+      36,
+      10
+     ],
+     "world": [
+      36,
+      134
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 73,
+     "h": 109,
+     "rect": [
+      134,
+      652,
+      73,
+      109
+     ]
+    },
+    {
+     "name": "torso",
+     "parent": null,
+     "z": 7,
+     "pivot": [
+      36,
+      106
+     ],
+     "world": [
+      88,
+      232
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 75,
+     "h": 115,
+     "rect": [
+      789,
+      501,
+      75,
+      115
+     ]
+    },
+    {
+     "name": "head",
+     "parent": "torso",
+     "z": 8,
+     "pivot": [
+      106,
+      128
+     ],
+     "world": [
+      112,
+      128
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 149,
+     "h": 139,
+     "rect": [
+      343,
+      501,
+      149,
+      139
+     ]
+    },
+    {
+     "name": "lid",
+     "parent": "head",
+     "z": 8.5,
+     "pivot": [
+      9,
+      2
+     ],
+     "world": [
+      129,
+      54
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 18,
+     "h": 20,
+     "rect": [
+      472,
+      765,
+      18,
+      20
+     ]
+    },
+    {
+     "name": "upperarm_near",
+     "parent": "torso",
+     "z": 9,
+     "pivot": [
+      24,
+      8
+     ],
+     "world": [
+      82,
+      140
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 47,
+     "h": 102,
+     "rect": [
+      258,
+      652,
+      47,
+      102
+     ]
+    },
+    {
+     "name": "forearm_near",
+     "parent": "upperarm_near",
+     "z": 10,
+     "pivot": [
+      23,
+      20
+     ],
+     "world": [
+      81,
+      213
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 47,
+     "h": 76,
+     "rect": [
+      763,
+      652,
+      47,
+      76
+     ]
+    }
+   ]
+  },
+  "cat": {
+   "source": "cat_sit",
+   "unit": 0.5527156549520766,
+   "height": 173,
+   "width": 174,
+   "origin": [
+    157,
+    313
+   ],
+   "parts": [
+    {
+     "name": "body",
+     "parent": null,
+     "z": 0,
+     "pivot": [
+      158,
+      210
+     ],
+     "world": [
+      170,
+      300
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 284,
+     "h": 223,
+     "rect": [
+      2,
+      276,
+      284,
+      223
+     ]
+    },
+    {
+     "name": "tail",
+     "parent": "body",
+     "z": 1,
+     "pivot": [
+      150,
+      86
+     ],
+     "world": [
+      150,
+      278
+     ],
+     "axis": "x-",
+     "jelly": false,
+     "w": 157,
+     "h": 120,
+     "rect": [
+      630,
+      501,
+      157,
+      120
+     ]
+    },
+    {
+     "name": "ear_l",
+     "parent": "head",
+     "z": 2,
+     "pivot": [
+      30,
+      59
+     ],
+     "world": [
+      156,
+      72
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 65,
+     "h": 82,
+     "rect": [
+      647,
+      652,
+      65,
+      82
+     ]
+    },
+    {
+     "name": "ear_r",
+     "parent": "head",
+     "z": 3,
+     "pivot": [
+      32,
+      61
+     ],
+     "world": [
+      250,
+      62
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 71,
+     "h": 72,
+     "rect": [
+      812,
+      652,
+      71,
+      72
+     ]
+    },
+    {
+     "name": "head",
+     "parent": "body",
+     "z": 4,
+     "pivot": [
+      116,
+      148
+     ],
+     "world": [
+      210,
+      190
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 218,
+     "h": 167,
+     "rect": [
+      458,
+      276,
+      218,
+      167
+     ]
+    },
+    {
+     "name": "lid_l",
+     "parent": "head",
+     "z": 5,
+     "pivot": [
+      26,
+      4
+     ],
+     "world": [
+      185,
+      70
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 52,
+     "h": 52,
+     "rect": [
+      294,
+      765,
+      52,
+      52
+     ]
+    },
+    {
+     "name": "lid_r",
+     "parent": "head",
+     "z": 6,
+     "pivot": [
+      27,
+      3
+     ],
+     "world": [
+      248,
+      58
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 54,
+     "h": 54,
+     "rect": [
+      238,
+      765,
+      54,
+      54
+     ]
+    }
+   ]
+  },
+  "owl": {
+   "source": "owl_read",
+   "unit": 0.5555555555555556,
+   "height": 190,
+   "width": 210,
+   "origin": [
+    189,
+    342
+   ],
+   "parts": [
+    {
+     "name": "body",
+     "parent": null,
+     "z": 0,
+     "pivot": [
+      170,
+      232
+     ],
+     "world": [
+      170,
+      330
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 333,
+     "h": 244,
+     "rect": [
+      495,
+      2,
+      333,
+      244
+     ]
+    },
+    {
+     "name": "head",
+     "parent": "body",
+     "z": 1,
+     "pivot": [
+      113,
+      140
+     ],
+     "world": [
+      180,
+      140
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 222,
+     "h": 163,
+     "rect": [
+      678,
+      276,
+      222,
+      163
+     ]
+    },
+    {
+     "name": "lid_l",
+     "parent": "head",
+     "z": 2,
+     "pivot": [
+      24,
+      1
+     ],
+     "world": [
+      150,
+      62
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 48,
+     "h": 50,
+     "rect": [
+      348,
+      765,
+      48,
+      50
+     ]
+    },
+    {
+     "name": "lid_r",
+     "parent": "head",
+     "z": 3,
+     "pivot": [
+      24,
+      1
+     ],
+     "world": [
+      220,
+      62
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 48,
+     "h": 50,
+     "rect": [
+      398,
+      765,
+      48,
+      50
+     ]
+    },
+    {
+     "name": "wing",
+     "parent": "body",
+     "z": 4,
+     "pivot": [
+      30,
+      22
+     ],
+     "world": [
+      60,
+      168
+     ],
+     "axis": "x",
+     "jelly": false,
+     "w": 223,
+     "h": 149,
+     "rect": [
+      2,
+      501,
+      223,
+      149
+     ]
+    },
+    {
+     "name": "book",
+     "parent": "body",
+     "z": 5,
+     "pivot": [
+      90,
+      198
+     ],
+     "world": [
+      300,
+      296
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 168,
+     "h": 203,
+     "rect": [
+      288,
+      276,
+      168,
+      203
+     ]
+    }
+   ]
+  },
+  "baker": {
+   "source": "baker_a_idle",
+   "unit": 0.5558823529411765,
+   "height": 189,
+   "width": 122,
+   "origin": [
+    118,
+    340
+   ],
+   "parts": [
+    {
+     "name": "arm_far",
+     "parent": "body",
+     "z": 0,
+     "pivot": [
+      77,
+      14
+     ],
+     "world": [
+      78,
+      108
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 114,
+     "h": 149,
+     "rect": [
+      227,
+      501,
+      114,
+      149
+     ]
+    },
+    {
+     "name": "body",
+     "parent": null,
+     "z": 1,
+     "pivot": [
+      110,
+      240
+     ],
+     "world": [
+      130,
+      330
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 215,
+     "h": 250,
+     "rect": [
+      278,
+      2,
+      215,
+      250
+     ]
+    },
+    {
+     "name": "head",
+     "parent": "body",
+     "z": 2,
+     "pivot": [
+      77,
+      110
+     ],
+     "world": [
+      140,
+      110
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 134,
+     "h": 125,
+     "rect": [
+      494,
+      501,
+      134,
+      125
+     ]
+    },
+    {
+     "name": "lid",
+     "parent": "head",
+     "z": 3,
+     "pivot": [
+      11,
+      2
+     ],
+     "world": [
+      160,
+      36
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 22,
+     "h": 24,
+     "rect": [
+      448,
+      765,
+      22,
+      24
+     ]
+    },
+    {
+     "name": "cap",
+     "parent": "head",
+     "z": 4,
+     "pivot": [
+      51,
+      52
+     ],
+     "world": [
+      125,
+      52
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 106,
+     "h": 69,
+     "rect": [
+      77,
+      765,
+      106,
+      69
+     ]
+    },
+    {
+     "name": "upperarm_near",
+     "parent": "body",
+     "z": 5,
+     "pivot": [
+      18,
+      12
+     ],
+     "world": [
+      188,
+      108
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 49,
+     "h": 111,
+     "rect": [
+      83,
+      652,
+      49,
+      111
+     ]
+    },
+    {
+     "name": "forearm_near",
+     "parent": "upperarm_near",
+     "z": 6,
+     "pivot": [
+      11,
+      87
+     ],
+     "world": [
+      214,
+      196
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 82,
+     "h": 98,
+     "rect": [
+      307,
+      652,
+      82,
+      98
+     ]
+    }
+   ]
+  },
+  "klyaksa": {
+   "source": "klyaksa_sit",
+   "unit": 0.5551470588235294,
+   "height": 151,
+   "width": 152,
+   "origin": [
+    137,
+    272
+   ],
+   "parts": [
+    {
+     "name": "body",
+     "parent": null,
+     "z": 0,
+     "pivot": [
+      137,
+      272
+     ],
+     "world": [
+      137,
+      272
+     ],
+     "axis": "y",
+     "jelly": true,
+     "w": 274,
+     "h": 272,
+     "rect": [
+      2,
+      2,
+      274,
+      272
+     ]
+    },
+    {
+     "name": "drop_a",
+     "parent": "body",
+     "z": 1,
+     "pivot": [
+      58,
+      66
+     ],
+     "world": [
+      96,
+      100
+     ],
+     "axis": "x-",
+     "jelly": false,
+     "w": 65,
+     "h": 87,
+     "rect": [
+      580,
+      652,
+      65,
+      87
+     ]
+    },
+    {
+     "name": "drop_b",
+     "parent": "body",
+     "z": 2,
+     "pivot": [
+      52,
+      42
+     ],
+     "world": [
+      74,
+      150
+     ],
+     "axis": "x-",
+     "jelly": false,
+     "w": 59,
+     "h": 71,
+     "rect": [
+      885,
+      652,
+      59,
+      71
+     ]
+    },
+    {
+     "name": "eye",
+     "parent": "body",
+     "z": 3,
+     "pivot": [
+      46,
+      86
+     ],
+     "world": [
+      200,
+      130
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 95,
+     "h": 93,
+     "rect": [
+      391,
+      652,
+      95,
+      93
+     ]
+    },
+    {
+     "name": "pupil",
+     "parent": "eye",
+     "z": 4,
+     "pivot": [
+      26,
+      28
+     ],
+     "world": [
+      214,
+      92
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 51,
+     "h": 59,
+     "rect": [
+      185,
+      765,
+      51,
+      59
+     ]
+    },
+    {
+     "name": "lid",
+     "parent": "eye",
+     "z": 5,
+     "pivot": [
+      45,
+      0
+     ],
+     "world": [
+      200,
+      46
+     ],
+     "axis": "y",
+     "jelly": false,
+     "w": 90,
+     "h": 88,
+     "rect": [
+      488,
+      652,
+      90,
+      88
+     ]
+    }
+   ]
+  }
+ }
+}
